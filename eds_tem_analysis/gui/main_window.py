@@ -9,8 +9,8 @@ from PIL import Image, ImageTk
 import webbrowser
 from pathlib import Path
 
-from .analysis_tab import AnalisisEDS
-from .stats_tab import Estadisticas
+from gui.analysis_tab import AnalisisEDS
+from gui.stats_tab import Estadisticas
 
 # Ruta a recursos (relativa a este archivo)
 RESOURCES_DIR = Path(__file__).parent.parent / "resources"

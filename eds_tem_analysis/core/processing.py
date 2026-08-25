@@ -9,9 +9,9 @@ from pathlib import Path
 import pandas as pd
 import threading
 
-from ..core.quantification import quantify_spectrum
-from ..report.pdf_generator import generate_pdf_from_signal
-from ..load.loader import load_spectrum, archivo_spot
+from core.quantification import quantify_spectrum
+from report.pdf_generator import generate_pdf_from_signal
+from load.loader import load_spectrum, archivo_spot
 
 _print_lock = threading.Lock()
 logger = logging.getLogger(__name__)

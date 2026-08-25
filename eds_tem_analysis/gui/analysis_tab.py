@@ -19,8 +19,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-from ..core.processing import process_spectrum
-from ..utils.helpers import extract_kfactors
+from core.processing import process_spectrum
+from utils.helpers import extract_kfactors
 
 logger = logging.getLogger(__name__)
 
