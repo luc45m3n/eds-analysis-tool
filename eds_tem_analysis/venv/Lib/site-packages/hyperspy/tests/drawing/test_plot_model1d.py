@@ -1,0 +1,99 @@
+# -*- coding: utf-8 -*-
+# Copyright 2007-2026 The HyperSpy developers
+#
+# This file is part of HyperSpy.
+#
+# HyperSpy is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# HyperSpy is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with HyperSpy. If not, see <https://www.gnu.org/licenses/#GPL>.
+
+import numpy as np
+import pytest
+
+from hyperspy.components1d import Expression
+from hyperspy.signals import Signal1D
+
+DEFAULT_TOL = 2.0
+BASELINE_DIR = "plot_model1d"
+STYLE_PYTEST_MPL = "default"
+
+
+class TestModelPlot:
+    def setup_method(self, method):
+        s = Signal1D(np.arange(1000, dtype=np.int64).reshape((10, 100)))
+        s.add_poissonian_noise(random_state=0)
+        m = s.create_model()
+        line = Expression("a * x", name="line", a=1)
+        m.append(line)
+        self.m = m
+
+    @pytest.mark.mpl_image_compare(
+        baseline_dir=BASELINE_DIR, tolerance=DEFAULT_TOL, style=STYLE_PYTEST_MPL
+    )
+    def test_default_signal_plot(self):
+        self.m.plot()
+        return self.m._plot.signal_plot.figure
+
+    @pytest.mark.mpl_image_compare(
+        baseline_dir=BASELINE_DIR, tolerance=DEFAULT_TOL, style=STYLE_PYTEST_MPL
+    )
+    def test_plot_components(self):
+        self.m.plot(plot_components=True)
+        return self.m._plot.signal_plot.figure
+
+    @pytest.mark.mpl_image_compare(
+        baseline_dir=BASELINE_DIR, tolerance=DEFAULT_TOL, style=STYLE_PYTEST_MPL
+    )
+    def test_disable_plot_components(self):
+        self.m.plot(plot_components=True)
+        self.m.disable_plot_components()
+        return self.m._plot.signal_plot.figure
+
+    @pytest.mark.mpl_image_compare(
+        baseline_dir=BASELINE_DIR, tolerance=DEFAULT_TOL, style=STYLE_PYTEST_MPL
+    )
+    def test_default_navigator_plot(self):
+        self.m.plot()
+        return self.m._plot.navigator_plot.figure
+
+    def test_no_navigator(self):
+        self.m.plot(navigator=None)
+        assert self.m.signal._plot.navigator_plot is None
+
+    @pytest.mark.parametrize("plot_residual", (False, True))
+    def test_plot_events_connection(self, plot_residual):
+        # Check that the events connection and
+        # the plotting line are reset when closing
+        expected_connection = 1
+        if plot_residual:
+            expected_connection += 1
+        c = self.m[0]
+
+        assert self.m._model_line is None
+        assert self.m._residual_line is None
+        assert len(c.events.active_changed.connected) == 0
+        for p in c.parameters:
+            assert len(p.events.value_changed.connected) == 0
+
+        self.m.plot(plot_residual=plot_residual)
+        assert self.m._model_line is not None
+        assert (self.m._residual_line is not None) is plot_residual
+        assert len(c.events.active_changed.connected) == expected_connection
+        for p in c.parameters:
+            assert len(p.events.value_changed.connected) == expected_connection
+
+        self.m._plot.close()
+        assert len(c.events.active_changed.connected) == 0
+        for p in c.parameters:
+            assert len(p.events.value_changed.connected) == 0
+        assert self.m._model_line is None
+        assert self.m._residual_line is None
