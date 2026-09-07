@@ -85,7 +85,7 @@ def _build_line_data(df: pd.DataFrame, energy_dict: dict, line_dict: dict):
     Construye [(label, energia, intensidad), ...] a partir de los diccionarios.
 
     Args:
-        df: DataFrame con columna 'Elemento' y 'Intensidad'
+        df: DataFrame con columna 'Element' y 'Intensidad'
         energy_dict: {elemento: energia_keV}
         line_dict: {elemento: 'Ka'/'Kb'/...}
 
@@ -93,13 +93,13 @@ def _build_line_data(df: pd.DataFrame, energy_dict: dict, line_dict: dict):
         list: Lista de tuplas (label, energia, intensidad)
     """
     line_data = []
-    for elem in df['Elemento'].tolist():
+    for elem in df['Element'].tolist():
         energy = energy_dict.get(elem)
         if energy is None:
             continue  # sin energía no hay pico que anotar
         linea = line_dict.get(elem, 'Ka')
         label = f"{elem}_{linea}"
-        intensidad = df.loc[df['Elemento'] == elem, 'Intensidad'].values[0] if 'Intensidad' in df.columns else None
+        intensidad = df.loc[df['Element'] == elem, 'Intensidad'].values[0] if 'Intensidad' in df.columns else None
         line_data.append((label, energy, intensidad))
     return line_data
 
@@ -208,7 +208,7 @@ def _find_peaks_auto(x, y, df):
         return []
 
     best_idx = max(peaks, key=lambda idx: y[idx])
-    return [(elem, x[best_idx], y[best_idx]) for elem in df['Elemento']]
+    return [(elem, x[best_idx], y[best_idx]) for elem in df['Element']]
 
 
 # --------------------------------------------------------------------------
@@ -231,7 +231,7 @@ def _draw_composition_table(ax_table, df, percent_col, unit_label):
         intensidad = row.get('Intensidad', 0)
         intensidad = 0 if pd.isna(intensidad) else intensidad
         table_data.append([
-            row['Elemento'],
+            row['Element'],
             f"{row[percent_col]:.2f}",
             f"{intensidad:.2f}"
         ])

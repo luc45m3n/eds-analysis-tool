@@ -112,7 +112,7 @@ def _lookup_line_energy(elem: str, line: str) -> Optional[float]:
 
 def _get_energies_from_signal(signal, elements_list):
     """
-    Obtiene las energías de las líneas X-ray desde las intensidades.
+    Obtiene las energías de las líneas X-ray desde las intensityes.
     """
     energy_dict = {}
     try:
@@ -125,7 +125,7 @@ def _get_energies_from_signal(signal, elements_list):
                 energy = float(m.group(3))
                 energy_dict[elemento] = energy
     except Exception as e:
-        logger.debug(f"No se pudieron obtener energías desde intensidades: {e}")
+        logger.debug(f"No se pudieron obtener energías desde intensityes: {e}")
 
     # Fallback: usar eXspy para obtener energías (Ka y luego La, sin cambios)
     for elem in elements_list:
@@ -258,7 +258,7 @@ def quantify_spectrum(
     def recompute(elements_list) -> tuple[pd.DataFrame, Dict[str, float], Dict[str, str]]:
         """Cuantifica y arma el DataFrame para una lista de elementos."""
         elems, intens, comps, energy_dict, line_dict = quantificar_con_elementos(sorted(elements_list))
-        out = pd.DataFrame({'Elemento': elems, percent_col: comps, 'Intensidad': intens})
+        out = pd.DataFrame({'Element': elems, percent_col: comps, 'Intensidad': intens})
         out.loc[out['Intensidad'] < 0, percent_col] = 0.0
         return out, energy_dict, line_dict
 
@@ -281,20 +281,20 @@ def quantify_spectrum(
                 break
 
             # --- FILTRO SNR: Calcular SNR para todos los elementos ---
-            # Si no hay energías, usar intensidad relativa como fallback
+            # Si no hay energías, usar intensity relativa como fallback
             snr_values = {}
-            for elem in df['Elemento'].tolist():
+            for elem in df['Element'].tolist():
                 if elem in energy_dict and energy_dict[elem] is not None:
                     snr = _calculate_snr(energy_dict[elem], y, x)
                 else:
-                    # Fallback: intensidad relativa
+                    # Fallback: intensity relativa
                     max_intensity = df['Intensidad'].max() if not df.empty else 1
-                    intensity_ratio = df[df['Elemento'] == elem]['Intensidad'].values[0] / max_intensity
+                    intensity_ratio = df[df['Element'] == elem]['Intensidad'].values[0] / max_intensity
                     snr = 5.0 if intensity_ratio >= 0.01 else 1.0
                 snr_values[elem] = snr
 
             # Añadir SNR al DataFrame
-            df['SNR'] = df['Elemento'].map(snr_values)
+            df['SNR'] = df['Element'].map(snr_values)
 
             # --- CRITERIO DE ELIMINACIÓN: porcentaje < umbral O SNR < umbral_snr ---
             below_threshold = df[
@@ -307,8 +307,8 @@ def quantify_spectrum(
 
             # Eliminar el elemento con menor porcentaje entre los que fallan
             min_idx = below_threshold[percent_col].idxmin()
-            eliminated.append(df.loc[min_idx, 'Elemento'])
-            remaining = df.drop(min_idx)['Elemento'].tolist()
+            eliminated.append(df.loc[min_idx, 'Element'])
+            remaining = df.drop(min_idx)['Element'].tolist()
 
             if len(remaining) <= 1:
                 df = df.drop(min_idx).reset_index(drop=True)

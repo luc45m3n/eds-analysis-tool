@@ -107,16 +107,16 @@ def process_spectrum(
     df = result['composition']
     for elem in elementos_data:
         elem['wt'] = 0.0
-        elem['intensidad'] = 0.0
+        elem['intensity'] = 0.0
     for _, row in df.iterrows():
-        elem_name = row['Elemento']
+        elem_name = row['Element']
         for elem in elementos_data:
             if elem['elemento'] == elem_name:
                 if 'wt.%' in row:
                     elem['wt'] = row['wt.%']
                 elif 'at.%' in row:
                     elem['wt'] = row['at.%']
-                elem['intensidad'] = row['Intensidad']
+                elem['intensity'] = row['Intensidad']
                 if elem_name in energy_dict:
                     elem['energia_keV'] = energy_dict[elem_name]
                     elem['linea'] = line_dict.get(elem_name, 'Ka')
@@ -137,7 +137,7 @@ def process_spectrum(
             print("-"*60)
             for elem in elementos_data:
                 if elem['wt'] > 0.0:
-                    print(f"  {elem['elemento']:<10} {elem['wt']:>10.2f} {elem['intensidad']:>12.2f}")
+                    print(f"  {elem['elemento']:<10} {elem['wt']:>10.2f} {elem['intensity']:>12.2f}")
             print("="*60 + "\n")
 
 
@@ -153,13 +153,13 @@ def process_spectrum(
         if not filtro_df.empty:
             # Asegurar columna Intensidad
             if 'Intensidad' not in filtro_df.columns:
-                intensidades = []
-                for elem in filtro_df['Elemento']:
+                intensityes = []
+                for elem in filtro_df['Element']:
                     for e in elementos_data:
                         if e['elemento'] == elem:
-                            intensidades.append(e['intensidad'])
+                            intensityes.append(e['intensity'])
                             break
-                filtro_df['Intensidad'] = intensidades
+                filtro_df['Intensidad'] = intensityes
 
             def sanitize_filename(name):
                 import re

@@ -170,7 +170,7 @@ class Estadisticas(tk.Frame):
                 
                 # Detectar si es archivo de promedios o datos completos
                 # Si tiene columna 'Archivo' → datos completos
-                # Si solo tiene 2 columnas (Elemento, wt.%) → promedio
+                # Si solo tiene 2 columnas (Element, wt.%) → promedio
                 if 'Archivo' in df_temp.columns:
                     # Archivo de datos completos
                     self.df = df_temp
@@ -193,7 +193,7 @@ class Estadisticas(tk.Frame):
         """Actualiza los Radiobuttons y Checkbuttons según los elementos."""
         if self.df is None:
             return
-        elementos = self.df["Elemento"].unique()
+        elementos = self.df["Element"].unique()
         for widget in self.frame_x.winfo_children():
             widget.destroy()
         for widget in self.frame_y.winfo_children():
@@ -224,7 +224,7 @@ class Estadisticas(tk.Frame):
             if df is not None and not df.empty:
                 percent_col = self._get_percent_col(df)
                 if percent_col:
-                    all_dfs.append(df[['Elemento', percent_col]].copy())
+                    all_dfs.append(df[['Element', percent_col]].copy())
 
         if not all_dfs:
             self._show_empty_message(self.bar_ax, "No data available for plot")
@@ -233,8 +233,8 @@ class Estadisticas(tk.Frame):
 
         combined = pd.concat(all_dfs, ignore_index=True)
         percent_col = self._get_percent_col(combined)
-        grouped = combined.groupby('Elemento')[percent_col].mean().reset_index()
-        grouped.columns = ['Elemento', 'Media']
+        grouped = combined.groupby('Element')[percent_col].mean().reset_index()
+        grouped.columns = ['Element', 'Mean']
 
         self._draw_bar_chart(grouped, percent_col)
 
@@ -251,20 +251,20 @@ class Estadisticas(tk.Frame):
             self.bar_canvas.draw()
             return
 
-        # El archivo de promedios ya tiene Elemento y el porcentaje
-        grouped = self.df_promedio[['Elemento', percent_col]].copy()
-        grouped.columns = ['Elemento', 'Media']
+        # El archivo de promedios ya tiene Element y el porcentaje
+        grouped = self.df_promedio[['Element', percent_col]].copy()
+        grouped.columns = ['Element', 'Mean']
 
         self._draw_bar_chart(grouped, percent_col)
 
     def _draw_bar_chart(self, grouped, percent_col):
         """Dibuja el gráfico de barras con los datos agrupados."""
-        grouped = grouped.sort_values('Media', ascending=False)
+        grouped = grouped.sort_values('Mean', ascending=False)
 
         self.bar_ax.clear()
         bars = self.bar_ax.bar(
-            grouped['Elemento'],
-            grouped['Media'],
+            grouped['Element'],
+            grouped['Mean'],
             capsize=5,
             color='skyblue',
             edgecolor='black'
@@ -312,7 +312,7 @@ class Estadisticas(tk.Frame):
             self.scatter_canvas.draw()
             return
 
-        x_data = self.df[self.df["Elemento"] == x_element][percent_col].reset_index(drop=True)
+        x_data = self.df[self.df["Element"] == x_element][percent_col].reset_index(drop=True)
 
         if x_data.empty:
             self._show_empty_message(self.scatter_ax, f"No data for '{x_element}'")
@@ -323,7 +323,7 @@ class Estadisticas(tk.Frame):
         colors = ['blue', 'red', 'green', 'orange', 'purple', 'brown', 'pink', 'gray', 'olive', 'cyan']
 
         for i, y_element in enumerate(y_elements):
-            y_data = self.df[self.df["Elemento"] == y_element][percent_col].reset_index(drop=True)
+            y_data = self.df[self.df["Element"] == y_element][percent_col].reset_index(drop=True)
             min_len = min(len(x_data), len(y_data))
             if min_len == 0:
                 continue
@@ -342,7 +342,7 @@ class Estadisticas(tk.Frame):
 
         self.scatter_ax.set_xlabel(f"{x_element} {percent_col}")
         self.scatter_ax.set_ylabel(percent_col)
-        self.scatter_ax.set_title(f'Scatter: {x_element} vs ohter elements')
+        self.scatter_ax.set_title(f'Scatter: {x_element} vs other elements')
         self.scatter_ax.legend()
         self.scatter_ax.grid(True, alpha=0.3)
         self.scatter_fig.tight_layout()

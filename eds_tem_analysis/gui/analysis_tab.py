@@ -41,7 +41,7 @@ class AnalisisEDS(tk.Frame):
 
         # --- Widgets existentes ---
         self.select_button = ttk.Button(
-            self, text="Directorio de Trabajo", command=self.select_folder
+            self, text="Working directory", command=self.select_folder
         )
         self.select_button.pack(pady=5, fill=tk.X)
 
@@ -51,13 +51,13 @@ class AnalisisEDS(tk.Frame):
         list_frame = ttk.Frame(self)
         list_frame.pack(fill=tk.BOTH, expand=True, pady=5)
 
-        ttk.Label(self, text="Muestra:").pack(pady=2, fill=tk.X)
+        ttk.Label(self, text="Sample:").pack(pady=2, fill=tk.X)
         self.muestra_entry = ttk.Entry(self, width=50)
         self.muestra_entry.pack(pady=2, fill=tk.X)
-        self.muestra_entry.insert(0, "Nombre_Muestra")
+        self.muestra_entry.insert(0, "sample_name")
 
         self.elementos_entry_var = tk.StringVar(value="Al ,Ca ,Fe, Mg ,Na, Si")
-        ttk.Label(self, text="Elementos (separados por coma):").pack(pady=2, fill=tk.X)
+        ttk.Label(self, text="Elements (comma-separated)").pack(pady=2, fill=tk.X)
         self.elementos_entry = ttk.Entry(
             self, width=50, textvariable=self.elementos_entry_var
         )
@@ -66,7 +66,7 @@ class AnalisisEDS(tk.Frame):
         # --- Selección de unidades ---
         units_frame = ttk.Frame(self)
         units_frame.pack(pady=2, fill=tk.X)
-        ttk.Label(units_frame, text="Unidades:").pack(side=tk.LEFT, padx=5)
+        ttk.Label(units_frame, text="Setting:").pack(side=tk.LEFT, padx=5)
         self.units_var = tk.StringVar(value="wt")
         units_combo = ttk.Combobox(
             units_frame,
@@ -75,8 +75,35 @@ class AnalisisEDS(tk.Frame):
             state="readonly",
             width=5
         )
-        units_combo.pack(side=tk.LEFT, padx=5)
-        ttk.Label(units_frame, text="(wt% / at%)").pack(side=tk.LEFT)
+        # --- Unidades + Cuentas mínimas (en una sola línea) ---
+        settings_row = ttk.Frame(self)
+        settings_row.pack(pady=2, fill=tk.X)
+
+        # Unidades (lado izquierdo)
+        ttk.Label(settings_row, text="Unit:").pack(side=tk.LEFT, padx=5)
+        self.units_var = tk.StringVar(value="wt")
+        units_combo = ttk.Combobox(
+            settings_row,
+            textvariable=self.units_var,
+            values=["wt", "at"],
+            state="readonly",
+            width=5
+        )
+        units_combo.pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Label(settings_row, text="(wt% / at%)").pack(side=tk.LEFT, padx=(0, 15))
+
+        # Separador vertical
+        ttk.Separator(settings_row, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=5)
+
+        # Cuentas mínimas (lado derecho)
+        ttk.Label(settings_row, text="Min. Counts:").pack(side=tk.LEFT, padx=5)
+        self.cuentas_minimas_var = tk.StringVar(value="100000")
+        self.cuentas_minimas_entry = ttk.Entry(
+            settings_row,
+            textvariable=self.cuentas_minimas_var,
+            width=8
+        )
+        self.cuentas_minimas_entry.pack(side=tk.LEFT, padx=5)
 
         # --- Filter: Umbral + SNR (en una sola línea) ---
         filter_frame = ttk.LabelFrame(self, text="Filter")
@@ -130,15 +157,7 @@ class AnalisisEDS(tk.Frame):
         )
         pdf_check.pack(side=tk.LEFT, padx=5)
 
-        # --- Cuentas mínimas ---
-        self.cuentas_minimas_var = tk.StringVar(value="100000")
-        ttk.Label(self, text="Minimum Count:").pack(pady=2, fill=tk.X)
-        self.cuentas_minimas_entry = ttk.Entry(
-            self, width=10, textvariable=self.cuentas_minimas_var
-        )
-        self.cuentas_minimas_entry.pack(pady=2, fill=tk.X)
-
-        # --- Lista de archivos ---
+         # --- Lista de archivos ---
         self.file_listbox = tk.Listbox(
             list_frame,
             width=70,
@@ -520,15 +539,15 @@ class AnalisisEDS(tk.Frame):
                                 percent = row.get('wt.%', 0)
                             else:
                                 percent = row.get('at.%', 0)
-                            intensidad = row.get('Intensidad', 0)
+                            intensity = row.get('Intensidad', 0)
 
-                            elem = row['Elemento']
+                            elem = row['Element']
                             energy = result.get('energy_dict', {}).get(elem, '')
                             line = result.get('line_dict', {}).get(elem, '')
-                            f.write(f"{row['Elemento']};{percent:.2f};{intensidad:.2f};{nombre_archivo}\n")
+                            f.write(f"{row['Element']};{percent:.2f};{intensity:.2f};{nombre_archivo}\n")
 
                     if not df.empty:
-                        elements = ', '.join(df['Elemento'].tolist())
+                        elements = ', '.join(df['Element'].tolist())
                         msg = f"✅ {Area} ({Spot}) - {len(df)} element: {elements}"
                     else:
                         msg = f"⚠️ {Area} ({Spot}) - None element detected"
@@ -564,17 +583,17 @@ class AnalisisEDS(tk.Frame):
                 if df is not None and not df.empty:
                     percent_col = 'wt.%' if units == 'weight' else 'at.%'
                     if percent_col in df.columns:
-                        all_dfs.append(df[['Elemento', percent_col]].copy())
+                        all_dfs.append(df[['Element', percent_col]].copy())
             
             if all_dfs:
                 combined = pd.concat(all_dfs, ignore_index=True)
-                promedio = combined.groupby('Elemento')[percent_col].mean().reset_index()
-                promedio.columns = ['Elemento', f'Promedio_{unit_label}']
+                promedio = combined.groupby('Element')[percent_col].mean().reset_index()
+                promedio.columns = ['Element', f'Promedio_{unit_label}']
             
                 with open(txt_promedio_path, 'w') as f:
-                    f.write(f"Elemento;{unit_label}\n")
+                    f.write(f"Element;{unit_label}\n")
                     for _, row in promedio.iterrows():
-                        f.write(f"{row['Elemento']};{row[f'Promedio_{unit_label}']:.2f}\n")
+                        f.write(f"{row['Element']};{row[f'Promedio_{unit_label}']:.2f}\n")
                 
                 self.log_message_progress(f"Averages file saved: {txt_promedio_path}", "INFO")
 
@@ -626,7 +645,7 @@ class AnalisisEDS(tk.Frame):
                     percent_col = 'at.%'
                 else:
                     continue
-                df = df[['Elemento', percent_col]].copy()
+                df = df[['Element', percent_col]].copy()
                 all_dfs.append(df)
 
         if not all_dfs:
@@ -634,8 +653,8 @@ class AnalisisEDS(tk.Frame):
             return
 
         combined = pd.concat(all_dfs, ignore_index=True)
-        grouped = combined.groupby('Elemento')[percent_col].agg(['mean', 'std']).reset_index()
-        grouped.columns = ['Elemento', 'Media', 'Desviacion']
+        grouped = combined.groupby('Element')[percent_col].agg(['mean', 'std']).reset_index()
+        grouped.columns = ['Element', 'Mean', 'Desviacion']
 
         win = tk.Toplevel(self)
         win.title("Bar Graph - Average composition")
@@ -643,8 +662,8 @@ class AnalisisEDS(tk.Frame):
 
         fig, ax = plt.subplots(figsize=(6, 4))
         bars = ax.bar(
-            grouped['Elemento'],
-            grouped['Media'],
+            grouped['Element'],
+            grouped['Mean'],
             yerr=grouped['Desviacion'],
             capsize=5,
             color='skyblue',
