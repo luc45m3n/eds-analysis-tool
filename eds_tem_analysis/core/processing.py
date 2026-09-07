@@ -129,17 +129,16 @@ def process_spectrum(
         else:
             unit_label = 'at.%'
         with _print_lock:
-            print("\n #### Resultado EDS, Analisis con HyperSpy ####")
-            print(f"Archivo {Area} {Spot} # Cuentas: {total_counts:.2f}")
-            print('|-------------------------------|---------------|')
-            print('|     Composición en masa       |    Calidad    |')
-            print('|-------------------------------|---------------|')
-            print(f'|    Elemento  |     {unit_label}     |   Intensidad  |')
-            print('|-------------------------------|---------------|')
+            print("\n" + "="*60)
+            print(f"  Resultado EDS - {Area} {Spot}")
+            print(f"Cuentas Totales: {total_counts:.2f}")
+            print("-"*60)
+            print(f"  {'Elemento':<10} {unit_label:>10} {'Intensidad':>12}")
+            print("-"*60)
             for elem in elementos_data:
                 if elem['wt'] > 0.0:
-                    print(f"| {elem['elemento']} \t\t|    {elem['wt']:.2f} \t|   {elem['intensidad']:.2f}    |")
-            print('################################################\n')
+                    print(f"  {elem['elemento']:<10} {elem['wt']:>10.2f} {elem['intensidad']:>12.2f}")
+            print("="*60 + "\n")
 
 
 
