@@ -30,17 +30,21 @@ except ImportError:
 # Función principal
 # --------------------------------------------------------------------------
 
-def generate_pdf_from_signal(signal, metadata: dict, df: pd.DataFrame, output_path: Path):
+def generate_pdf_from_signal(signal, metadata: dict, df: pd.DataFrame, output_path: Path, 
+                             energy_dict: dict = None, line_dict: dict = None):
     """
     Genera un PDF con el espectro y la tabla de composición.
-    Usa líneas verticales desde las anotaciones hasta y=0.
+    energy_dict: diccionario {elemento: energia_keV}
+    line_dict: diccionario {elemento: linea} (ej. 'Ka', 'Kb', 'La')
     """
     try:
         percent_col, unit_label = _get_percent_column(df)
 
         x = signal.axes_manager[0].axis
         y = signal.data
-        line_data = _extract_line_data(signal, x, y, df)
+        
+        # --- PASAR LOS DICCIONARIOS A _extract_line_data ---
+        line_data = _extract_line_data(signal, x, y, df, energy_dict, line_dict)
 
         with PdfPages(output_path) as pdf:
             fig = plt.figure(figsize=(8.5, 11))
@@ -85,13 +89,27 @@ def _get_percent_column(df: pd.DataFrame):
     return None, 'Porcentaje'
 
 
-def _extract_line_data(signal, x, y, df: pd.DataFrame):
+def _extract_line_data(signal, x, y, df: pd.DataFrame, energy_dict: dict = None, line_dict: dict = None):
     """
-    Obtiene las líneas X-ray (etiqueta, energía, valor) desde la señal.
-    Si falla, intenta con xray_lines de metadata; si no hay nada, busca
-    picos automáticamente.
+    Obtiene las líneas X-ray desde los diccionarios proporcionados.
+    Si no se proporcionan, intenta extraer de la señal.
     """
     line_data = []
+    
+    # --- PRIORIDAD 1: Usar energy_dict y line_dict ---
+    if energy_dict:
+        for elem in df['Elemento'].tolist():
+            if elem in energy_dict:
+                energy = energy_dict[elem]
+                linea = line_dict.get(elem, 'Ka') if line_dict else 'Ka'
+                label = f"{elem}_{linea}"
+                # Obtener intensidad desde el DataFrame
+                intensidad = df[df['Elemento'] == elem]['Intensidad'].values[0] if 'Intensidad' in df.columns else None
+                line_data.append((label, energy, intensidad))
+        if line_data:
+            return line_data
+    
+    # --- PRIORIDAD 2: Intentar extraer desde la señal ---
     try:
         for sig in signal.get_lines_intensity():
             title = getattr(sig.metadata, 'General', None)
@@ -108,6 +126,7 @@ def _extract_line_data(signal, x, y, df: pd.DataFrame):
         except Exception:
             pass
 
+    # --- PRIORIDAD 3: Buscar picos automáticamente ---
     if not line_data:
         logger.info("No se encontraron líneas X-ray, buscando picos automáticamente...")
         line_data = _find_peaks_auto(x, y, df)
@@ -144,8 +163,10 @@ def _add_peak_annotations(ax, x, y, line_data):
         if energy is None:
             continue
         energy_actual, y_peak = _peak_at_energy(x, y, energy)
-        if y_peak > y.max() * 0.01:  # ignorar picos muy pequeños
-            peak_info.append((label, energy_actual, y_peak))
+        if y_peak > y.max() * 0.01:
+            # Convertir label para mostrar "Al Ka" en lugar de "Al_Ka"
+            display_label = label.replace('_', ' ')
+            peak_info.append((display_label, energy_actual, y_peak))
 
     if not peak_info:
         return

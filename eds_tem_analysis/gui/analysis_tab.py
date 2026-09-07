@@ -112,6 +112,16 @@ class AnalisisEDS(tk.Frame):
             self.output_dir_frame, text="Seleccionar", command=self.select_output_dir
         )
         self.output_dir_button.pack(side=tk.RIGHT, padx=(5, 0))
+        # generar pdf
+        pdf_frame = ttk.Frame(self)
+        pdf_frame.pack(pady=2, fill=tk.X)
+        self.generate_pdf_var = tk.BooleanVar(value=True)
+        pdf_check = ttk.Checkbutton(
+            pdf_frame,
+            text="Generar informe PDF",
+            variable=self.generate_pdf_var
+        )
+        pdf_check.pack(side=tk.LEFT, padx=5)
 
         # --- Cuentas mínimas ---
         self.cuentas_minimas_var = tk.StringVar(value="100000")
@@ -407,7 +417,8 @@ class AnalisisEDS(tk.Frame):
                 messagebox.showerror("Error", "No se encontraron archivos .spc.")
                 return None
             return (muestra, cuentas_minimas, units, elementos_data, output_dir, path, spc_files, xml_files, umbral)
-
+        
+        generate_pdf = self.generate_pdf_var.get()
         # Obtener parámetros (con timeout)
         params = None
         def get_params_callback():
@@ -458,7 +469,8 @@ class AnalisisEDS(tk.Frame):
                 output_dir=output_dir,
                 units=units,
                 umbral=umbral,
-                snr_umbral=snr_umbral, 
+                snr_umbral=snr_umbral,
+                generate_pdf=generate_pdf, 
                 cancel_event=self.cancel_event,
                 verbose=True
             )
@@ -495,6 +507,10 @@ class AnalisisEDS(tk.Frame):
                             else:
                                 percent = row.get('at.%', 0)
                             intensidad = row.get('Intensidad', 0)
+
+                            elem = row['Elemento']
+                            energy = result.get('energy_dict', {}).get(elem, '')
+                            line = result.get('line_dict', {}).get(elem, '')
                             f.write(f"{row['Elemento']};{percent:.2f};{intensidad:.2f};{nombre_archivo}\n")
 
                     if not df.empty:

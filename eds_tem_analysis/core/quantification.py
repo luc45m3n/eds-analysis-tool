@@ -5,7 +5,7 @@ from typing import List, Dict, Any, Optional
 import numpy as np
 import pandas as pd
 import exspy
-
+from exspy.misc.elements import elements_db
 logger = logging.getLogger(__name__)
 
 
@@ -21,6 +21,8 @@ def _build_result(
     signal=None,
     composition: Optional[pd.DataFrame] = None,
     eliminated: Optional[List[str]] = None,
+    energy_dict: Optional[Dict[str, float]] = None,
+    line_dict: Optional[Dict[str, str]] = None,
     error: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
@@ -28,12 +30,18 @@ def _build_result(
     los caminos de salida de quantify_spectrum (antes, el camino de error
     en la cuantificación inicial no incluía 'composition', 'eliminated_elements'
     ni 'signal', lo que podía romper con KeyError a quien consume el resultado).
+
+    Se agregaron 'energy_dict' y 'line_dict' como parámetros opcionales:
+    antes se los pasaba desde quantify_spectrum sin que la firma los
+    aceptara, lo que producía un TypeError al construir el resultado final.
     """
     return {
         'valid': valid,
         'composition': composition if composition is not None else pd.DataFrame(),
         'total_counts': total_counts,
         'eliminated_elements': eliminated if eliminated is not None else [],
+        'energy_dict': energy_dict if energy_dict is not None else {},
+        'line_dict': line_dict if line_dict is not None else {},
         'metadata': metadata,
         'signal': signal,
         'error': error,
@@ -92,8 +100,9 @@ def _lookup_line_energy(elem: str, line: str) -> Optional[float]:
         logger.debug(f"Lookup por atributos falló para {elem}_{line}: {e}")
 
     # Estilo diccionario (elements_db)
+    # NOTA: 'elements_db' ya está importado a nivel de módulo; se quitó el
+    # 'from exspy.misc.elements import elements_db' local que era redundante.
     try:
-        from exspy.misc.elements import elements_db
         return float(elements_db[elem]['Atomic_properties']['Xray_lines'][line]['energy (keV)'])
     except Exception as e:
         logger.debug(f"Lookup por diccionario falló para {elem}_{line}: {e}")
@@ -147,6 +156,7 @@ def quantify_spectrum(
     """
     Cuantifica un espectro EDS-TEM utilizando HyperSpy.
     """
+
     if metadata is None:
         metadata = {}
 
@@ -167,7 +177,12 @@ def quantify_spectrum(
     # --- OBTENER ENERGIAS PARA SNR ---
     x = signal.axes_manager[0].axis
     y = signal.data
-    energy_dict = _get_energies_from_signal(signal, element_names)
+    # NOTA: este energy_dict "inicial" ya no se descarta en silencio: se usa
+    # como fallback dentro de quantificar_con_elementos cuando _lookup_line_energy
+    # no puede resolver una energía por los caminos habituales. Antes se
+    # calculaba (con el costo de un get_lines_intensity() extra) y se tiraba
+    # a la basura apenas se llamaba a recompute().
+    fallback_energy_dict = _get_energies_from_signal(signal, element_names)
 
     def quantificar_con_elementos(elements_list):
         """Realiza la cuantificación para una lista de elementos (ordenada)."""
@@ -192,12 +207,36 @@ def quantify_spectrum(
                 raise ValueError("Ninguno de los elementos tiene líneas disponibles.")
             signal.set_elements(elements_to_use)
             signal.add_lines()
-            elements_to_use = [l.split('_')[0] for l in signal.metadata.Sample.xray_lines]
+            filtered_lines = list(signal.metadata.Sample.xray_lines)
+            elements_to_use = [l.split('_')[0] for l in filtered_lines]
         else:
             elements_to_use = elements_list
 
+        # NOTA: se eliminó el primer bloque que calculaba local_energy_dict /
+        # local_line_dict vía elements_db y era pisado íntegramente por un
+        # segundo bloque casi idéntico (código muerto). Además, al declarar
+        # 'local_energy_dict = {}' más abajo en la función original, Python
+        # trataba esa variable como local en TODO el cuerpo de la función,
+        # por lo que el primer bloque fallaba con UnboundLocalError antes de
+        # llegar siquiera a ejecutarse el segundo. Ahora hay un único bloque,
+        # que usa _lookup_line_energy (atributos -> diccionario -> None) y,
+        # si sigue sin resolver la energía, cae al fallback_energy_dict
+        # calculado una sola vez al principio de quantify_spectrum.
+        local_energy_dict = {}
+        local_line_dict = {}
+        for line in filtered_lines:
+            elem, line_type = line.split('_', 1)
+            energy = _lookup_line_energy(elem, line_type)
+            if energy is None:
+                energy = fallback_energy_dict.get(elem)
+            if energy is None:
+                logger.warning(f"No se pudo obtener energía para {line}")
+            local_energy_dict[elem] = energy
+            local_line_dict[elem] = line_type
+
         intensities = signal.get_lines_intensity()
         intensity_values = [_scalar(i) for i in intensities]
+
         if len(intensity_values) != len(elements_to_use):
             logger.error(
                 f"Mismatch: xray_lines actuales={list(signal.metadata.Sample.xray_lines)}, "
@@ -212,17 +251,21 @@ def quantify_spectrum(
             intensities, method=method, factors=factors, composition_units=composition_units
         )
         comp_values = [_scalar(c) for c in composition]
-        return elements_to_use, intensity_values, comp_values
 
-    def recompute(elements_list) -> pd.DataFrame:
+        # Devolver también los diccionarios de energía y línea
+        return elements_to_use, intensity_values, comp_values, local_energy_dict, local_line_dict
+
+    def recompute(elements_list) -> tuple[pd.DataFrame, Dict[str, float], Dict[str, str]]:
         """Cuantifica y arma el DataFrame para una lista de elementos."""
-        elems, intens, comps = quantificar_con_elementos(sorted(elements_list))
+        elems, intens, comps, energy_dict, line_dict = quantificar_con_elementos(sorted(elements_list))
         out = pd.DataFrame({'Elemento': elems, percent_col: comps, 'Intensidad': intens})
         out.loc[out['Intensidad'] < 0, percent_col] = 0.0
-        return out
+        return out, energy_dict, line_dict
 
+    logger.debug("ANTES de quantificar_con_elementos")
     try:
-        df = recompute(element_names)
+        df, energy_dict, line_dict = recompute(element_names)
+        logger.debug(f"DESPUÉS de recompute: energy_dict={energy_dict}")
     except Exception as e:
         logger.error(f"Error en cuantificación inicial: {e}")
         return _build_result(valid=False, total_counts=total_counts, metadata=metadata, signal=signal, error=str(e))
@@ -241,7 +284,7 @@ def quantify_spectrum(
             # Si no hay energías, usar intensidad relativa como fallback
             snr_values = {}
             for elem in df['Elemento'].tolist():
-                if elem in energy_dict:
+                if elem in energy_dict and energy_dict[elem] is not None:
                     snr = _calculate_snr(energy_dict[elem], y, x)
                 else:
                     # Fallback: intensidad relativa
@@ -269,12 +312,10 @@ def quantify_spectrum(
 
             if len(remaining) <= 1:
                 df = df.drop(min_idx).reset_index(drop=True)
-                if len(df) == 1:
-                    df.loc[0, percent_col] = 100.0
                 break
 
             try:
-                df = recompute(remaining)
+                df, energy_dict, line_dict = recompute(remaining)
             except Exception as e:
                 logger.error(f"Error en refinamiento: {e}")
                 break
@@ -292,4 +333,6 @@ def quantify_spectrum(
         signal=signal,
         composition=df,
         eliminated=eliminated,
+        energy_dict=energy_dict,
+        line_dict=line_dict,
     )

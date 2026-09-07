@@ -28,6 +28,7 @@ def process_spectrum(
     units: str = "weight",
     umbral: float = 1.0,
     snr_umbral: float = 3.0, 
+    generate_pdf: bool = True,
     cancel_event: threading.Event = None,
     verbose: bool = True
 ):
@@ -78,11 +79,15 @@ def process_spectrum(
         metadata=metadata
     )
 
+
     if cancel_event and cancel_event.is_set():
         return None
 
     # Obtener total_counts del resultado
     total_counts = result.get('total_counts', 0.0)
+    
+    energy_dict = result.get('energy_dict', {})
+    line_dict = result.get('line_dict', {})
 
     # Si no es válido, registrar y salir
     if not result['valid']:
@@ -112,6 +117,9 @@ def process_spectrum(
                 elif 'at.%' in row:
                     elem['wt'] = row['at.%']
                 elem['intensidad'] = row['Intensidad']
+                if elem_name in energy_dict:
+                    elem['energia_keV'] = energy_dict[elem_name]
+                    elem['linea'] = line_dict.get(elem_name, 'Ka')
                 break
 
     # --- SALIDA EN TERMINAL (opcional) ---
@@ -133,46 +141,38 @@ def process_spectrum(
                     print(f"| {elem['elemento']} \t\t|    {elem['wt']:.2f} \t|   {elem['intensidad']:.2f}    |")
             print('################################################\n')
 
-    # --- Generar PDF ---
-    # Filtrar elementos con wt > 0
-    percent_col = 'wt.%' if units == 'weight' else 'at.%'
-    filtro_df = df[df[percent_col] > 0].copy()
-    if filtro_df.empty:
-        logger.warning(f"No hay elementos con {percent_col} > 0 para {Area}")
-        return {
-            'valid': True,
-            'Area': Area,
-            'Spot': Spot,
-            'total_counts': total_counts,
-            'composition': df,
-            'nombre_archivo': nombre_archivo,
-            'error': None
-        }
 
-    # Asegurar columna Intensidad
-    if 'Intensidad' not in filtro_df.columns:
-        intensidades = []
-        for elem in filtro_df['Elemento']:
-            for e in elementos_data:
-                if e['elemento'] == elem:
-                    intensidades.append(e['intensidad'])
-                    break
-        filtro_df['Intensidad'] = intensidades
+    # --- Generar PDF (solo si está habilitado) ---
+    if generate_pdf:
+        percent_col = 'wt.%' if units == 'weight' else 'at.%'
+        filtro_df = df[df[percent_col] > 0].copy()
+        
+        if not filtro_df.empty:
+            # Asegurar columna Intensidad
+            if 'Intensidad' not in filtro_df.columns:
+                intensidades = []
+                for elem in filtro_df['Elemento']:
+                    for e in elementos_data:
+                        if e['elemento'] == elem:
+                            intensidades.append(e['intensidad'])
+                            break
+                filtro_df['Intensidad'] = intensidades
 
-    # Sanitizar nombre
-    def sanitize_filename(name):
-        import re
-        return re.sub(r'[<>:"/\\|?*]', '_', name)
+            def sanitize_filename(name):
+                import re
+                return re.sub(r'[<>:"/\\|?*]', '_', name)
 
-    safe_name = sanitize_filename(f"{Area}_{Spot}")
-    output_pdf = Path(output_dir) / f"{safe_name}.pdf"
-
-    generate_pdf_from_signal(
-        signal=signal,
-        metadata={"Area": Area, "Spot": Spot},
-        df=filtro_df,
-        output_path=output_pdf
-    )
+            safe_name = sanitize_filename(f"{Area}_{Spot}")
+            output_pdf = Path(output_dir) / f"{safe_name}.pdf"
+            
+            generate_pdf_from_signal(
+                signal=signal,
+                metadata={"Area": Area, "Spot": Spot},
+                df=filtro_df,
+                output_path=output_pdf,
+                energy_dict=energy_dict,
+                line_dict=line_dict
+            )
 
     return {
         'valid': True,
@@ -180,5 +180,8 @@ def process_spectrum(
         'Spot': Spot,
         'total_counts': total_counts,
         'composition': df,
+        'energy_dict': energy_dict,
+        'line_dict': line_dict,
+        'nombre_archivo_spc': Path(spc_file).name,
         'error': None
     }
