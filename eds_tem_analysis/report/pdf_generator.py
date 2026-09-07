@@ -8,11 +8,10 @@ import re
 from pathlib import Path
 
 import matplotlib
-matplotlib.use('Agg')  # <-- FORZAR BACKEND SIN GUI
+matplotlib.use('Agg')
 
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
-
 import numpy as np
 import pandas as pd
 
@@ -30,21 +29,27 @@ except ImportError:
 # Función principal
 # --------------------------------------------------------------------------
 
-def generate_pdf_from_signal(signal, metadata: dict, df: pd.DataFrame, output_path: Path, 
-                             energy_dict: dict = None, line_dict: dict = None):
+def generate_pdf_from_signal(signal, metadata: dict, df: pd.DataFrame, output_path: Path,
+                              energy_dict: dict, line_dict: dict,
+                              percent_col: str, unit_label: str):
     """
     Genera un PDF con el espectro y la tabla de composición.
-    energy_dict: diccionario {elemento: energia_keV}
-    line_dict: diccionario {elemento: linea} (ej. 'Ka', 'Kb', 'La')
+
+    Args:
+        signal: Objeto Signal de HyperSpy
+        metadata: Diccionario con 'Area' y 'Spot'
+        df: DataFrame con Elemento, porcentaje, Intensidad
+        output_path: Ruta de salida del PDF
+        energy_dict: Diccionario {elemento: energia_keV}
+        line_dict: Diccionario {elemento: 'Ka'/'Kb'/...}
+        percent_col: Nombre de la columna de porcentaje ('wt.%' o 'at.%')
+        unit_label: Etiqueta a mostrar en la tabla ('wt.%' o 'at.%')
     """
     try:
-        percent_col, unit_label = _get_percent_column(df)
-
         x = signal.axes_manager[0].axis
         y = signal.data
-        
-        # --- PASAR LOS DICCIONARIOS A _extract_line_data ---
-        line_data = _extract_line_data(signal, x, y, df, energy_dict, line_dict)
+
+        line_data = _build_line_data(df, energy_dict, line_dict)
 
         with PdfPages(output_path) as pdf:
             fig = plt.figure(figsize=(8.5, 11))
@@ -75,62 +80,27 @@ def generate_pdf_from_signal(signal, metadata: dict, df: pd.DataFrame, output_pa
 # Helpers de datos
 # --------------------------------------------------------------------------
 
-def _get_percent_column(df: pd.DataFrame):
-    """Determina qué columna de porcentaje usar y su etiqueta."""
-    if 'wt.%' in df.columns:
-        return 'wt.%', 'wt.%'
-    if 'at.%' in df.columns:
-        return 'at.%', 'at.%'
-
-    numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns
-    if len(numeric_cols) > 0:
-        return numeric_cols[0], numeric_cols[0]
-
-    return None, 'Porcentaje'
-
-
-def _extract_line_data(signal, x, y, df: pd.DataFrame, energy_dict: dict = None, line_dict: dict = None):
+def _build_line_data(df: pd.DataFrame, energy_dict: dict, line_dict: dict):
     """
-    Obtiene las líneas X-ray desde los diccionarios proporcionados.
-    Si no se proporcionan, intenta extraer de la señal.
+    Construye [(label, energia, intensidad), ...] a partir de los diccionarios.
+
+    Args:
+        df: DataFrame con columna 'Elemento' y 'Intensidad'
+        energy_dict: {elemento: energia_keV}
+        line_dict: {elemento: 'Ka'/'Kb'/...}
+
+    Returns:
+        list: Lista de tuplas (label, energia, intensidad)
     """
     line_data = []
-    
-    # --- PRIORIDAD 1: Usar energy_dict y line_dict ---
-    if energy_dict:
-        for elem in df['Elemento'].tolist():
-            if elem in energy_dict:
-                energy = energy_dict[elem]
-                linea = line_dict.get(elem, 'Ka') if line_dict else 'Ka'
-                label = f"{elem}_{linea}"
-                # Obtener intensidad desde el DataFrame
-                intensidad = df[df['Elemento'] == elem]['Intensidad'].values[0] if 'Intensidad' in df.columns else None
-                line_data.append((label, energy, intensidad))
-        if line_data:
-            return line_data
-    
-    # --- PRIORIDAD 2: Intentar extraer desde la señal ---
-    try:
-        for sig in signal.get_lines_intensity():
-            title = getattr(sig.metadata, 'General', None)
-            title = title.title if title else ""
-            m = re.search(r':\s*(\w+)\s+at\s+([\d.]+)\s*keV', title)
-            if m:
-                label, energy = m.group(1), float(m.group(2))
-                line_data.append((label, energy, float(sig.data[0])))
-    except Exception as e:
-        logger.warning(f"No se pudieron obtener líneas X-ray: {e}")
-        try:
-            line_data = [(line.replace('_', ' '), None, None)
-                         for line in signal.metadata.Sample.xray_lines]
-        except Exception:
-            pass
-
-    # --- PRIORIDAD 3: Buscar picos automáticamente ---
-    if not line_data:
-        logger.info("No se encontraron líneas X-ray, buscando picos automáticamente...")
-        line_data = _find_peaks_auto(x, y, df)
-
+    for elem in df['Elemento'].tolist():
+        energy = energy_dict.get(elem)
+        if energy is None:
+            continue  # sin energía no hay pico que anotar
+        linea = line_dict.get(elem, 'Ka')
+        label = f"{elem}_{linea}"
+        intensidad = df.loc[df['Elemento'] == elem, 'Intensidad'].values[0] if 'Intensidad' in df.columns else None
+        line_data.append((label, energy, intensidad))
     return line_data
 
 
@@ -141,7 +111,8 @@ def _extract_line_data(signal, x, y, df: pd.DataFrame, energy_dict: dict = None,
 def _peak_at_energy(x, y, energy):
     """Devuelve (energía_real, y_del_pico) para una energía dada."""
     idx = np.argmin(np.abs(x - energy))
-    if abs(x[idx] - energy) < 0.05:
+    step = x[1] - x[0] if len(x) > 1 else 0.05
+    if abs(x[idx] - energy) < step / 2:
         return x[idx], y[idx]
     return energy, float(np.interp(energy, x, y))
 
@@ -149,13 +120,8 @@ def _peak_at_energy(x, y, energy):
 def _add_peak_annotations(ax, x, y, line_data):
     """
     Añade anotaciones de picos:
-    - Línea vertical tenue desde una base cercana a y=0 hasta el pico.
-    - Etiqueta anclada a la altura real de SU pico (no a una banda fija),
-      así nunca queda flotando lejos de un pico bajo.
-    - Solo se alterna arriba/abajo cuando hay picos cercanos en energía
-      que podrían solaparse; picos aislados van pegados a su propio pico.
-    - La distancia etiqueta-pico está acotada (max_offset) para garantizar
-      que la anotación siga señalando el pico correcto.
+    - Línea vertical desde una base cercana a y=0 hasta el pico.
+    - Etiqueta anclada al pico, alternando arriba/abajo para evitar solapamiento.
     - Ajuste fino con adjustText si está disponible.
     """
     peak_info = []
@@ -163,8 +129,9 @@ def _add_peak_annotations(ax, x, y, line_data):
         if energy is None:
             continue
         energy_actual, y_peak = _peak_at_energy(x, y, energy)
+        if energy_actual is None or y_peak is None:
+            continue
         if y_peak > y.max() * 0.01:
-            # Convertir label para mostrar "Al Ka" en lugar de "Al_Ka"
             display_label = label.replace('_', ' ')
             peak_info.append((display_label, energy_actual, y_peak))
 
@@ -177,15 +144,15 @@ def _add_peak_annotations(ax, x, y, line_data):
     y_range = y_max - y_min
     x_range = x[-1] - x[0]
 
-    y_base = y_max * 0.02        # base de la línea vertical (cerca de y=0)
-    base_offset = y_range * 0.05     # separación mínima etiqueta-pico
-    max_offset = y_range * 0.18      # tope: la etiqueta nunca se aleja más que esto del pico
+    y_base = y_max * 0.02
+    base_offset = y_range * 0.05
+    max_offset = y_range * 0.18
     x_offset = 0.02 * x_range
-    cluster_gap = 0.04 * x_range     # picos más cercanos que esto compiten por espacio
+    cluster_gap = 0.04 * x_range
 
     texts = []
     prev_energy = None
-    slot = 0  # posición dentro de un grupo de picos cercanos entre sí
+    slot = 0
 
     for label, energy, y_peak in peak_info:
         if prev_energy is not None and (energy - prev_energy) < cluster_gap:
@@ -194,18 +161,20 @@ def _add_peak_annotations(ax, x, y, line_data):
             slot = 0
         prev_energy = energy
 
-        # Solo alterna arriba/abajo si compite por espacio con un pico cercano
         above = (slot % 2 == 0)
         offset = min(base_offset + (slot // 2) * base_offset, max_offset)
         y_pos = y_peak + offset if above else y_peak - offset
         y_pos = max(y_min + y_range * 0.03, min(y_max - y_range * 0.03, y_pos))
         va = 'bottom' if above else 'top'
 
-        # Línea vertical sutil desde la base hasta el pico
+        # Línea vertical desde la base hasta el pico
         ax.plot([energy, energy], [y_base, y_peak],
                 color='gray', linestyle='-', linewidth=0.85, alpha=0.8)
 
-        # Etiqueta, cerca (en X e Y) del pico al que corresponde
+        # Marcador en el pico
+        ax.plot(energy, y_peak, 'v', color='red', markersize=7, alpha=0.8)
+
+        # Etiqueta
         text = ax.text(
             energy + x_offset * (1 if above else -1),
             y_pos, label,
@@ -220,7 +189,7 @@ def _add_peak_annotations(ax, x, y, line_data):
                 expand_points=(1.0, 1.0),
                 expand_text=(1.0, 1.0),
                 autoalign='xy',
-                only_move={'text': 'y'},  # solo mover verticalmente
+                only_move={'text': 'y'},
                 avoid_self=True,
                 lim=50,
                 precision=0.01,
@@ -247,6 +216,9 @@ def _find_peaks_auto(x, y, df):
 # --------------------------------------------------------------------------
 
 def _draw_composition_table(ax_table, df, percent_col, unit_label):
+    """
+    Dibuja la tabla de composición en el eje de matplotlib.
+    """
     ax_table.axis('off')
 
     if not percent_col or percent_col not in df.columns:
@@ -256,10 +228,12 @@ def _draw_composition_table(ax_table, df, percent_col, unit_label):
 
     table_data = [["Elemento", unit_label, "Intensidad"]]
     for _, row in df.iterrows():
+        intensidad = row.get('Intensidad', 0)
+        intensidad = 0 if pd.isna(intensidad) else intensidad
         table_data.append([
             row['Elemento'],
             f"{row[percent_col]:.2f}",
-            f"{row.get('Intensidad', 0):.2f}"
+            f"{intensidad:.2f}"
         ])
 
     table = ax_table.table(cellText=table_data, loc='center', cellLoc='center')

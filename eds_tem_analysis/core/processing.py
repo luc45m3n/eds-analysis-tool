@@ -70,7 +70,7 @@ def process_spectrum(
     result = quantify_spectrum(
         signal=signal,
         elements_data=elementos_data,
-        min_total_counts=cuentas_minimas,  # Aquí se usa el umbral
+        min_total_counts=cuentas_minimas,  
         min_weight_percent=umbral,
         snr_umbral=snr_umbral,
         method='CL',
@@ -141,11 +141,14 @@ def process_spectrum(
                     print(f"| {elem['elemento']} \t\t|    {elem['wt']:.2f} \t|   {elem['intensidad']:.2f}    |")
             print('################################################\n')
 
+
+
     if cancel_event and cancel_event.is_set():
         return None
     # --- Generar PDF (solo si está habilitado) ---
+    percent_col = 'wt.%' if units == 'weight' else 'at.%'
+    unit_label = percent_col
     if generate_pdf:
-        percent_col = 'wt.%' if units == 'weight' else 'at.%'
         filtro_df = df[df[percent_col] > 0].copy()
         
         if not filtro_df.empty:
@@ -172,7 +175,9 @@ def process_spectrum(
                 df=filtro_df,
                 output_path=output_pdf,
                 energy_dict=energy_dict,
-                line_dict=line_dict
+                line_dict=line_dict,
+                percent_col=percent_col,
+                unit_label=unit_label,
             )
 
     return {
