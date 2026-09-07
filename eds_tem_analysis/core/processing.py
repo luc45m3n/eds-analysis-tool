@@ -131,7 +131,7 @@ def process_spectrum(
         with _print_lock:
             print("\n" + "="*60)
             print(f"  Resultado EDS - {Area} {Spot}")
-            print(f"Cuentas Totales: {total_counts:.2f}")
+            print(f"  Cuentas Totales: {total_counts:.2f}")
             print("-"*60)
             print(f"  {'Elemento':<10} {unit_label:>10} {'Intensidad':>12}")
             print("-"*60)
