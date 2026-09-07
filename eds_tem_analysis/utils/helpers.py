@@ -26,13 +26,13 @@ def load_kfactors(filepath="kfactor.txt"):
             names=["elemento", "kfactor"],
             index_col="elemento"
         )
-        logger.info(f"Factores K cargados desde {filepath}")
+        logger.info(f"Loaded K-factors from {filepath}")
         return df
     except FileNotFoundError:
-        logger.error(f"No se encontró el archivo de factores K: {filepath}")
+        logger.error(f"K-factors file not found: {filepath}")
         raise
     except Exception as e:
-        logger.error(f"Error al leer {filepath}: {e}")
+        logger.error(f"Error reading {filepath}: {e}")
         raise
 
 
@@ -53,7 +53,7 @@ def extract_kfactors(elementos_str, kfactor_file="kfactor.txt"):
                 "k_alpha": None
             })
         else:
-            logger.warning(f"Elemento '{elem}' no encontrado en el archivo de factores K")
+            logger.warning(f"Elemento '{elem}' not found in K-factors file")
     return elementos_data
 
 
@@ -71,7 +71,7 @@ def get_xray_energy(element: str, line: str = "Ka") -> float:
         line_obj = getattr(element_obj.Atomic_properties.Xray_lines, line)
         return line_obj.energy_keV
     except AttributeError as e:
-        raise ValueError(f"Elemento '{element}' o línea '{line}' no encontrado: {e}")
+        raise ValueError(f"Element '{element}' or line '{line}' not found: {e}")
 
 
 def get_xray_energies_for_elements(elements: list, line: str = "Ka") -> dict:
