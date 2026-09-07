@@ -22,7 +22,7 @@ try:
     HAS_ADJUSTTEXT = True
 except ImportError:
     HAS_ADJUSTTEXT = False
-    logger.warning("adjustText no instalado. Las anotaciones pueden solaparse.")
+    logger.warning("adjustText is not installed. Annotations may overlap.")
 
 
 # --------------------------------------------------------------------------
@@ -57,9 +57,9 @@ def generate_pdf_from_signal(signal, metadata: dict, df: pd.DataFrame, output_pa
 
             ax_spectrum = fig.add_subplot(gs[0])
             ax_spectrum.plot(x, y, color='steelblue', linewidth=0.8)
-            ax_spectrum.set_title(f"Espectro - {metadata.get('Area', '')} {metadata.get('Spot', '')}")
-            ax_spectrum.set_xlabel("Energía (keV)")
-            ax_spectrum.set_ylabel("Cuentas")
+            ax_spectrum.set_title(f"Specter - {metadata.get('Area', '')} {metadata.get('Spot', '')}")
+            ax_spectrum.set_xlabel("Energi (keV)")
+            ax_spectrum.set_ylabel("Counts")
             ax_spectrum.grid(True, alpha=0.3)
 
             if line_data:
@@ -70,9 +70,9 @@ def generate_pdf_from_signal(signal, metadata: dict, df: pd.DataFrame, output_pa
             pdf.savefig(fig)
             plt.close(fig)
 
-        logger.info(f"PDF generado: {output_path}")
+        logger.info(f"PDF generated: {output_path}")
     except Exception as e:
-        logger.error(f"Error al generar PDF: {e}")
+        logger.error(f"Error generation PDF: {e}")
         raise
 
 
@@ -196,7 +196,7 @@ def _add_peak_annotations(ax, x, y, line_data):
                 time_lim=0.3,
             )
         except Exception as e:
-            logger.warning(f"adjustText falló: {e}")
+            logger.warning(f"adjustText failed: {e}")
 
 
 def _find_peaks_auto(x, y, df):
@@ -222,11 +222,11 @@ def _draw_composition_table(ax_table, df, percent_col, unit_label):
     ax_table.axis('off')
 
     if not percent_col or percent_col not in df.columns:
-        ax_table.text(0.5, 0.5, "Datos de composición no disponibles",
+        ax_table.text(0.5, 0.5, "Composition data not available",
                       ha='center', va='center')
         return
 
-    table_data = [["Elemento", unit_label, "Intensidad"]]
+    table_data = [["Element", unit_label, "Intensity"]]
     for _, row in df.iterrows():
         intensidad = row.get('Intensidad', 0)
         intensidad = 0 if pd.isna(intensidad) else intensidad

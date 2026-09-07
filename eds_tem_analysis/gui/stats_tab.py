@@ -30,7 +30,7 @@ class Estadisticas(tk.Frame):
         self.open_button = ttk.Button(
             control_frame,
             style="TButton",
-            text="Abrir archivo de resultados",
+            text="Open result file",
             command=self.open_file_and_update
         )
         self.open_button.pack(side=tk.LEFT, padx=5)
@@ -38,7 +38,7 @@ class Estadisticas(tk.Frame):
         self.reload_button = ttk.Button(
             control_frame,
             style="TButton",
-            text="Recargar desde disco",
+            text="Reload from disk",
             command=self.reload_from_disk
         )
         self.reload_button.pack(side=tk.LEFT, padx=5)
@@ -49,7 +49,7 @@ class Estadisticas(tk.Frame):
 
         # --- Pestaña 1: Gráfico de barras (usando promedio) ---
         self.bar_tab = ttk.Frame(self.inner_notebook)
-        self.inner_notebook.add(self.bar_tab, text="📊 Composición promedio")
+        self.inner_notebook.add(self.bar_tab, text=" Average composition")
 
         self.bar_frame = ttk.Frame(self.bar_tab)
         self.bar_frame.pack(fill=tk.BOTH, expand=True)
@@ -59,12 +59,12 @@ class Estadisticas(tk.Frame):
         self.bar_canvas = FigureCanvasTkAgg(self.bar_fig, master=self.bar_frame)
         self.bar_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
-        self._show_empty_message(self.bar_ax, "Cargue un archivo de resultados")
+        self._show_empty_message(self.bar_ax, "Load results file")
         self.bar_canvas.draw()
 
         # --- Pestaña 2: Gráfico de dispersión (usando datos completos) ---
         self.scatter_tab = ttk.Frame(self.inner_notebook)
-        self.inner_notebook.add(self.scatter_tab, text="📈 Dispersión")
+        self.inner_notebook.add(self.scatter_tab, text="Scatter")
 
         scatter_control_frame = ttk.Frame(self.scatter_tab)
         scatter_control_frame.pack(fill=tk.X, pady=5)
@@ -80,7 +80,7 @@ class Estadisticas(tk.Frame):
         self.update_scatter_button = ttk.Button(
             scatter_control_frame,
             style="TButton",
-            text="Actualizar gráfico de dispersión",
+            text="Update Scatter plot",
             command=self.update_scatter_plot
         )
         self.update_scatter_button.pack(pady=5)
@@ -93,7 +93,7 @@ class Estadisticas(tk.Frame):
         self.scatter_canvas = FigureCanvasTkAgg(self.scatter_fig, master=self.scatter_frame)
         self.scatter_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
-        self._show_empty_message(self.scatter_ax, "Seleccione elementos y presione 'Actualizar'")
+        self._show_empty_message(self.scatter_ax, "Select element and press 'Update'")
         self.scatter_canvas.draw()
 
     # ----- Métodos auxiliares -----
@@ -143,11 +143,11 @@ class Estadisticas(tk.Frame):
                     self.df = pd.read_csv(self.current_file_path, sep=";", decimal=".")
                     self.actualizar_checkboxes()
                     self.update_scatter_plot()
-                    messagebox.showinfo("Recargado", "Datos de dispersión recargados.")
+                    messagebox.showinfo("Reload", "Scatter data reloaded.")
                 else:
-                    messagebox.showerror("Error", "El archivo de datos completos ya no existe.")
+                    messagebox.showerror("Error", "Completed data fiel does not exist.")
             except Exception as e:
-                messagebox.showerror("Error", f"No se pudo recargar:\n{e}")
+                messagebox.showerror("Error", f"Could not reolad:\n{e}")
         
         if self.current_promedio_path:
             try:
@@ -156,9 +156,9 @@ class Estadisticas(tk.Frame):
                     self.df_promedio = pd.read_csv(self.current_promedio_path, sep=";", decimal=".")
                     self.update_bar_chart()
                 else:
-                    messagebox.showerror("Error", "El archivo de promedios ya no existe.")
+                    messagebox.showerror("Error", "Average file no longer exist.")
             except Exception as e:
-                messagebox.showerror("Error", f"No se pudo recargar promedio:\n{e}")
+                messagebox.showerror("Error", f"Could not load average:\n{e}")
 
     def open_file_and_update(self):
         """Abre un archivo de resultados y detecta si es datos completos o promedio."""
@@ -176,18 +176,18 @@ class Estadisticas(tk.Frame):
                     self.df = df_temp
                     self.actualizar_checkboxes()
                     self.update_scatter_plot()
-                    messagebox.showinfo("Info", "Archivo de datos completos cargado. Disponible gráfico de dispersión.")
+                    messagebox.showinfo("Info", "Completed data file loaded. Scatter plot available.")
                 else:
                     # Archivo de promedios
                     self.df_promedio = df_temp
                     self.update_bar_chart()
-                    messagebox.showinfo("Info", "Archivo de promedios cargado. Disponible gráfico de barras.")
+                    messagebox.showinfo("Info", "Average file loaded. Bar plot available.")
                     # Deshabilitar dispersión (no hay datos suficientes)
-                    self._show_empty_message(self.scatter_ax, "No disponible para archivo de promedios")
+                    self._show_empty_message(self.scatter_ax, "No available for average file")
                     self.scatter_canvas.draw()
                     
             except Exception as e:
-                messagebox.showerror("Error", f"No se pudo leer el archivo:\n{e}")
+                messagebox.showerror("Error", f"Could not read file:\n{e}")
 
     def actualizar_checkboxes(self):
         """Actualiza los Radiobuttons y Checkbuttons según los elementos."""
@@ -227,7 +227,7 @@ class Estadisticas(tk.Frame):
                     all_dfs.append(df[['Elemento', percent_col]].copy())
 
         if not all_dfs:
-            self._show_empty_message(self.bar_ax, "No hay datos para gráfico")
+            self._show_empty_message(self.bar_ax, "No data available for plot")
             self.bar_canvas.draw()
             return
 
@@ -241,13 +241,13 @@ class Estadisticas(tk.Frame):
     def update_bar_chart(self):
         """Genera gráfico de barras desde self.df_promedio (archivo de promedios)."""
         if self.df_promedio is None or self.df_promedio.empty:
-            self._show_empty_message(self.bar_ax, "No hay datos de promedios")
+            self._show_empty_message(self.bar_ax, "No average data available")
             self.bar_canvas.draw()
             return
 
         percent_col = self._get_percent_col(self.df_promedio)
         if percent_col is None:
-            self._show_empty_message(self.bar_ax, "No se encontró columna de porcentaje")
+            self._show_empty_message(self.bar_ax, "Percent column not found")
             self.bar_canvas.draw()
             return
 
@@ -269,8 +269,8 @@ class Estadisticas(tk.Frame):
             color='skyblue',
             edgecolor='black'
         )
-        self.bar_ax.set_ylabel(f'Porcentaje ({percent_col})')
-        self.bar_ax.set_title('Composición promedio de elementos')
+        self.bar_ax.set_ylabel(f'Percent ({percent_col})')
+        self.bar_ax.set_title('Average composition of elements')
         self.bar_ax.grid(axis='y', linestyle='--', alpha=0.7)
 
         for bar in bars:
@@ -289,13 +289,13 @@ class Estadisticas(tk.Frame):
     def update_scatter_plot(self):
         """Actualiza el gráfico de dispersión con los elementos seleccionados."""
         if self.df is None:
-            self._show_empty_message(self.scatter_ax, "Cargue un archivo de datos completos")
+            self._show_empty_message(self.scatter_ax, "Load completed data file")
             self.scatter_canvas.draw()
             return
 
         percent_col = self._get_percent_col(self.df)
         if percent_col is None:
-            self._show_empty_message(self.scatter_ax, "No se encontró columna de porcentaje")
+            self._show_empty_message(self.scatter_ax, "Percent column not found in data")
             self.scatter_canvas.draw()
             return
 
@@ -308,14 +308,14 @@ class Estadisticas(tk.Frame):
 
         if not x_element or not y_elements:
             self._show_empty_message(self.scatter_ax, 
-                                     "Seleccione un elemento en 'x' y uno o más en 'y'")
+                                     "Select one element in 'x' and one or more for 'y'")
             self.scatter_canvas.draw()
             return
 
         x_data = self.df[self.df["Elemento"] == x_element][percent_col].reset_index(drop=True)
 
         if x_data.empty:
-            self._show_empty_message(self.scatter_ax, f"No hay datos para '{x_element}'")
+            self._show_empty_message(self.scatter_ax, f"No data for '{x_element}'")
             self.scatter_canvas.draw()
             return
 
@@ -342,7 +342,7 @@ class Estadisticas(tk.Frame):
 
         self.scatter_ax.set_xlabel(f"{x_element} {percent_col}")
         self.scatter_ax.set_ylabel(percent_col)
-        self.scatter_ax.set_title(f'Dispersión: {x_element} vs otros elementos')
+        self.scatter_ax.set_title(f'Scatter: {x_element} vs ohter elements')
         self.scatter_ax.legend()
         self.scatter_ax.grid(True, alpha=0.3)
         self.scatter_fig.tight_layout()

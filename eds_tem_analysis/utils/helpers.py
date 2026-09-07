@@ -83,7 +83,7 @@ def get_xray_energies_for_elements(elements: list, line: str = "Ka") -> dict:
         try:
             energy_dict[elem] = get_xray_energy(elem, line)
         except ValueError as e:
-            logger.warning(f"No se pudo obtener energía para {elem}: {e}")
+            logger.warning(f"Could not retrieve energy for {elem}: {e}")
     return energy_dict
 
 

@@ -78,38 +78,45 @@ class AnalisisEDS(tk.Frame):
         units_combo.pack(side=tk.LEFT, padx=5)
         ttk.Label(units_frame, text="(wt% / at%)").pack(side=tk.LEFT)
 
-        # --- Selector de umbral ---
-        umbral_frame = ttk.Frame(self)
-        umbral_frame.pack(pady=2, fill=tk.X)
-        ttk.Label(umbral_frame, text="Umbral de filtrado (%):").pack(side=tk.LEFT, padx=5)
-        self.umbral_var = tk.StringVar(value="1.0")
-        self.umbral_entry = ttk.Entry(umbral_frame, textvariable=self.umbral_var, width=8)
-        self.umbral_entry.pack(side=tk.LEFT, padx=5)
+        # --- Filter: Umbral + SNR (en una sola línea) ---
+        filter_frame = ttk.LabelFrame(self, text="Filter")
+        filter_frame.pack(pady=4, fill=tk.X, padx=5)
 
-        # --- Selector de sensibilidad SNR ---
-        snr_frame = ttk.Frame(self)
-        snr_frame.pack(pady=2, fill=tk.X)
-        ttk.Label(snr_frame, text="Sensibilidad SNR:").pack(side=tk.LEFT, padx=5)
+        # Fila interna para Umbral y SNR
+        filter_row = ttk.Frame(filter_frame)
+        filter_row.pack(fill=tk.X, pady=4, padx=5)
+
+        # Umbral de filtrado
+        ttk.Label(filter_row, text="Threshold (%):").pack(side=tk.LEFT, padx=(0, 5))
+        self.umbral_var = tk.StringVar(value="1.0")
+        self.umbral_entry = ttk.Entry(filter_row, textvariable=self.umbral_var, width=6)
+        self.umbral_entry.pack(side=tk.LEFT, padx=(0, 15))
+
+        # Separador vertical
+        ttk.Separator(filter_row, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=5)
+
+        # Sensibilidad SNR
+        ttk.Label(filter_row, text="SNR:").pack(side=tk.LEFT, padx=(0, 5))
         self.snr_var = tk.StringVar(value="3.0")
         snr_combo = ttk.Combobox(
-            snr_frame,
+            filter_row,
             textvariable=self.snr_var,
-            values=["0","1.0", "2.0", "3.0", "4.0", "5.0", "10.0"],
+            values=["0", "1.0", "2.0", "3.0", "4.0", "5.0", "10.0"],
             state="readonly",
-            width=5
+            width=4
         )
-        snr_combo.pack(side=tk.LEFT, padx=5)
-        ttk.Label(snr_frame, text="(mayor = más estricto)").pack(side=tk.LEFT)
+        snr_combo.pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Label(filter_row, text="(higher = stricter)").pack(side=tk.LEFT)
 
         # --- Carpeta de salida ---
-        ttk.Label(self, text="Carpeta de salida:").pack(pady=2, fill=tk.X)
+        ttk.Label(self, text="Output Folder:").pack(pady=2, fill=tk.X)
         self.output_dir_frame = ttk.Frame(self)
         self.output_dir_frame.pack(fill=tk.X, pady=2)
         self.output_dir_entry = ttk.Entry(self.output_dir_frame, width=40)
         self.output_dir_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        self.output_dir_entry.insert(0, "salida")
+        self.output_dir_entry.insert(0, "output")
         self.output_dir_button = ttk.Button(
-            self.output_dir_frame, text="Seleccionar", command=self.select_output_dir
+            self.output_dir_frame, text="Select", command=self.select_output_dir
         )
         self.output_dir_button.pack(side=tk.RIGHT, padx=(5, 0))
         # generar pdf
@@ -118,14 +125,14 @@ class AnalisisEDS(tk.Frame):
         self.generate_pdf_var = tk.BooleanVar(value=True)
         pdf_check = ttk.Checkbutton(
             pdf_frame,
-            text="Generar informe PDF",
+            text="Generate PDF Inform",
             variable=self.generate_pdf_var
         )
         pdf_check.pack(side=tk.LEFT, padx=5)
 
         # --- Cuentas mínimas ---
         self.cuentas_minimas_var = tk.StringVar(value="100000")
-        ttk.Label(self, text="Cuentas mínimas:").pack(pady=2, fill=tk.X)
+        ttk.Label(self, text="Minimum Count:").pack(pady=2, fill=tk.X)
         self.cuentas_minimas_entry = ttk.Entry(
             self, width=10, textvariable=self.cuentas_minimas_var
         )
@@ -155,13 +162,13 @@ class AnalisisEDS(tk.Frame):
         self.button_frame.pack(fill=tk.X, pady=10)
 
         self.analyze_button = ttk.Button(
-            self.button_frame, text="Analizar EDS", command=self.start_analysis
+            self.button_frame, text="EDS Analysis ", command=self.start_analysis
         )
         self.analyze_button.pack(side=tk.RIGHT, expand=True, padx=(5, 0))
 
         self.cancel_button = ttk.Button(
             self.button_frame,
-            text="Cancelar",
+            text="Cancel",
             command=self.cancel_analysis,
             state="disabled"
         )
@@ -208,7 +215,7 @@ class AnalisisEDS(tk.Frame):
     def cancel_analysis(self):
         """Solicita la cancelación del análisis en curso."""
         if self.progress_win and self.progress_win.winfo_exists():
-            self.log_message_progress("Cancelando análisis...", "WARNING")
+            self.log_message_progress("Analysis Canceled...", "WARNING")
         self.cancel_event.set()
         if self.executor:
             for future in self.futures.values():
@@ -216,7 +223,7 @@ class AnalisisEDS(tk.Frame):
             self.executor.shutdown(wait=False, cancel_futures=True)
         self.cancel_button.config(state="disabled")
         if self.progress_win and self.progress_win.winfo_exists():
-            self.progress_win.status_label.config(text="Cancelando...")
+            self.progress_win.status_label.config(text="Canceled...")
 
     # ----- Métodos para la ventana de progreso -----
 
@@ -298,7 +305,7 @@ class AnalisisEDS(tk.Frame):
 
         # Crear ventana de progreso
         self.progress_win = tk.Toplevel(self)
-        self.progress_win.title("Progreso del Análisis EDS")
+        self.progress_win.title("EDS Analysis progress...")
         self.progress_win.geometry("700x550")
         self.progress_win.transient(self)
         self.progress_win.protocol("WM_DELETE_WINDOW", self.on_progress_window_close)
@@ -312,7 +319,7 @@ class AnalisisEDS(tk.Frame):
         )
         self.progress_win.progress_bar.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
-        self.progress_win.status_label = ttk.Label(frame_progress, text="Iniciando...", width=30)
+        self.progress_win.status_label = ttk.Label(frame_progress, text="Starting...", width=30)
         self.progress_win.status_label.pack(side=tk.RIGHT, padx=5)
 
         # Área de log (con scroll)
@@ -323,7 +330,7 @@ class AnalisisEDS(tk.Frame):
 
         # Botón de cerrar (inicialmente deshabilitado hasta que termine)
         self.progress_win.close_button = ttk.Button(
-            self.progress_win, text="Cerrar", command=self.close_progress_window, state="disabled"
+            self.progress_win, text="Close", command=self.close_progress_window, state="disabled"
         )
         self.progress_win.close_button.pack(pady=5)
 
@@ -387,34 +394,34 @@ class AnalisisEDS(tk.Frame):
             snr_umbral = float(self.snr_var.get().strip())
         except ValueError:
             snr_umbral = 3.0
-            self.log_message("Valor SNR inválido. Usando 3.0 (estándar)", "WARNING")
+            self.log_message("Invalid SNR Value. Using 3.0 (standard)", "WARNING")
         # Obtener parámetros en el hilo principal
         def get_params():
             try:
                 umbral = float(self.umbral_var.get().strip())
             except ValueError:
-                messagebox.showerror("Error", "El umbral debe ser un número.")
+                messagebox.showerror("Error", "Threshold must be a number.")
                 return None
             muestra = self.muestra_entry.get().strip()
             if not muestra:
-                messagebox.showerror("Error", "Debe ingresar un nombre de muestra.")
+                messagebox.showerror("Error", "Must input sample name.")
                 return None
             try:
                 cuentas_minimas = float(self.cuentas_minimas_entry.get())
             except ValueError:
-                messagebox.showerror("Error", "Cuentas mínimas debe ser un número.")
+                messagebox.showerror("Error", "Minimum count must be a number.")
                 return None
             units_map = {"wt": "weight", "at": "atomic"}
             units = units_map.get(self.units_var.get(), "weight")
             elementos_str = self.elementos_entry_var.get()
             kfactor_path = Path(self.app.RESOURCES_DIR) / "kfactor.txt"
             elementos_data = extract_kfactors(elementos_str, str(kfactor_path))
-            output_dir = self.output_dir_entry.get().strip() or "salida"
+            output_dir = self.output_dir_entry.get().strip() or "output"
             path = self.current_path
             spc_files = glob.glob(os.path.join(path, "*.spc"))
             xml_files = glob.glob(os.path.join(path, "*.xml"))
             if not spc_files:
-                messagebox.showerror("Error", "No se encontraron archivos .spc.")
+                messagebox.showerror("Error", ".spc, files not found.")
                 return None
             return (muestra, cuentas_minimas, units, elementos_data, output_dir, path, spc_files, xml_files, umbral)
         
@@ -439,10 +446,10 @@ class AnalisisEDS(tk.Frame):
 
         total = len(spc_files)
 
-        self.master.after(0, lambda: self.update_progress(0, total, "Iniciando..."))
-        self.master.after(0, lambda: self.log_message_progress(f"Iniciando análisis de {total} espectros"))
-        self.master.after(0, lambda: self.log_message_progress(f"Unidades: {units}, Cuentas mínimas: {cuentas_minimas}, Umbral: {umbral}%"))
-        self.master.after(0, lambda: self.log_message_progress(f"Carpeta de salida: {output_dir}"))
+        self.master.after(0, lambda: self.update_progress(0, total, "Starting..."))
+        self.master.after(0, lambda: self.log_message_progress(f"Starting analysis of {total} specters"))
+        self.master.after(0, lambda: self.log_message_progress(f"Units: {units}, Minimal counts: {cuentas_minimas}, Umbral: {umbral}%"))
+        self.master.after(0, lambda: self.log_message_progress(f"Output folder: {output_dir}"))
 
         self.master.after(0, lambda: self.analyze_button.config(state="disabled"))
         self.master.after(0, lambda: self.cancel_button.config(state="normal"))
@@ -478,22 +485,22 @@ class AnalisisEDS(tk.Frame):
 
         unit_label = 'wt.%' if units == 'weight' else 'at.%'
 
-        txt_datos_path = os.path.join(output_dir, f"{muestra}_datos_completos.txt")
-        txt_promedio_path = os.path.join(output_dir, f"{muestra}_promedio.txt")
+        txt_datos_path = os.path.join(output_dir, f"{muestra}_completed_data.txt")
+        txt_promedio_path = os.path.join(output_dir, f"{muestra}_mean.txt")
         os.makedirs(output_dir, exist_ok=True)
 
         with open(txt_datos_path, 'w') as f:
-            f.write(f"Elemento;{unit_label};Intensidad;Archivo\n")
+            f.write(f"Element;{unit_label};Intensity;File\n")
 
         processed = 0
         for future in as_completed(self.futures):
 
             if self.cancel_event.is_set():
                 self.master.after(0, lambda: self.log_message_progress(
-                "Análisis cancelado por el usuario.", "WARNING"
+                "Analysis stoped by user.", "WARNING"
                 ))
                 break
-            
+
             i, spc_file = self.futures[future]
             out_text, err_text = "", ""
             try:
@@ -502,7 +509,7 @@ class AnalisisEDS(tk.Frame):
                 if result is not None and result.get('valid', False):
                     self.results.append(result)
                     df = result.get('composition', pd.DataFrame())
-                    Area = result.get('Area', 'Desconocido')
+                    Area = result.get('Area', 'Unknown')
                     Spot = result.get('Spot', '')
                     nombre_archivo = Path(spc_file).name
 
@@ -522,15 +529,15 @@ class AnalisisEDS(tk.Frame):
 
                     if not df.empty:
                         elements = ', '.join(df['Elemento'].tolist())
-                        msg = f"✅ {Area} ({Spot}) - {len(df)} elementos: {elements}"
+                        msg = f"✅ {Area} ({Spot}) - {len(df)} element: {elements}"
                     else:
-                        msg = f"⚠️ {Area} ({Spot}) - Sin elementos detectados"
+                        msg = f"⚠️ {Area} ({Spot}) - None element detected"
                 else:
-                    error = result.get('error', 'Error desconocido') if result else 'Sin resultado'
+                    error = result.get('error', 'Unknown Error ') if result else 'No results'
                     msg = f"❌ {Path(spc_file).name}: {error}"
 
             except Exception as e:
-                msg = f"❌ Error en {Path(spc_file).name}: {e}"
+                msg = f"❌ Error in {Path(spc_file).name}: {e}"
                 out_text, err_text = "", ""
 
             processed += 1
@@ -541,15 +548,15 @@ class AnalisisEDS(tk.Frame):
                 self.master.after(0, lambda t=err_text: self.log_block_progress(t, "ERROR"))
 
             self.master.after(0, lambda m=msg: self.log_message_progress(m))
-            self.master.after(0, lambda v=processed, t=total: self.update_progress(v, t, f"Procesado {v}/{t}"))
+            self.master.after(0, lambda v=processed, t=total: self.update_progress(v, t, f"Processed {v}/{t}"))
 
             if self.cancel_event.is_set():
-                self.master.after(0, lambda: self.log_message_progress("Análisis cancelado por el usuario.", "WARNING"))
+                self.master.after(0, lambda: self.log_message_progress("Analysis stoped by user.", "WARNING"))
                 break
 
         # --- BLOQUE DE PROMEDIOS ---
         if self.results:
-            self.log_message_progress("Calculando promedios...", "INFO")
+            self.log_message_progress("Calculating averages...", "INFO")
             
             all_dfs = []
             for res in self.results:
@@ -569,7 +576,7 @@ class AnalisisEDS(tk.Frame):
                     for _, row in promedio.iterrows():
                         f.write(f"{row['Elemento']};{row[f'Promedio_{unit_label}']:.2f}\n")
                 
-                self.log_message_progress(f"Archivo de promedios guardado: {txt_promedio_path}", "INFO")
+                self.log_message_progress(f"Averages file saved: {txt_promedio_path}", "INFO")
 
         # ============================================================
         # FINALIZAR EJECUTOR
@@ -582,25 +589,25 @@ class AnalisisEDS(tk.Frame):
         self.master.after(0, lambda: self.analyze_button.config(state="normal"))
         self.master.after(0, lambda: self.cancel_button.config(state="disabled"))
         self.master.after(0, lambda: self.progress_win.close_button.config(state="normal"))
-        self.master.after(0, lambda: self.progress_win.status_label.config(text="Finalizado"))
+        self.master.after(0, lambda: self.progress_win.status_label.config(text="Finished"))
 
         if self.cancel_event.is_set():
-            self.master.after(0, lambda: self.log_message_progress("Procesamiento interrumpido.", "WARNING"))
+            self.master.after(0, lambda: self.log_message_progress("Processing interrumpted.", "WARNING"))
         else:
-            self.master.after(0, lambda: self.log_message_progress("Análisis completado exitosamente."))
+            self.master.after(0, lambda: self.log_message_progress("Analysis completed."))
             if self.results:
-                self.master.after(0, lambda: self.log_message_progress(f"Se procesaron {len(self.results)} espectros válidos."))
+                self.master.after(0, lambda: self.log_message_progress(f"{len(self.results)} valid spectra where processed."))
                 self.master.after(0, lambda: self.app.tab_estadisticas.set_results(self.results))
                 self.master.after(0, lambda: self.app.tab_estadisticas.update_bar_chart())
                 
                 # Actualizar estadísticas con el archivo de datos completos
-                txt_datos_path = os.path.join(output_dir, f"{muestra}_datos_completos.txt")
+                txt_datos_path = os.path.join(output_dir, f"{muestra}_completed_data.txt")
                 if os.path.exists(txt_datos_path):
                     try:
                         df_nuevo = pd.read_csv(txt_datos_path, sep=";", decimal=".")
                         self.master.after(0, lambda: self.app.tab_estadisticas.cargar_dataframe(df_nuevo))
                     except Exception as e:
-                        logger.error(f"Error al recargar archivo en estadísticas: {e}")
+                        logger.error(f"Error loading statistical file: {e}")
                         
     # ----- Gráfico de barras -----
     def show_bar_chart(self):
@@ -623,7 +630,7 @@ class AnalisisEDS(tk.Frame):
                 all_dfs.append(df)
 
         if not all_dfs:
-            self.log_message_progress("No hay datos para generar gráfico.", "WARNING")
+            self.log_message_progress("No data available to generate graph.", "WARNING")
             return
 
         combined = pd.concat(all_dfs, ignore_index=True)
@@ -631,7 +638,7 @@ class AnalisisEDS(tk.Frame):
         grouped.columns = ['Elemento', 'Media', 'Desviacion']
 
         win = tk.Toplevel(self)
-        win.title("Gráfico de barras - Composición promedio")
+        win.title("Bar Graph - Average composition")
         win.geometry("700x500")
 
         fig, ax = plt.subplots(figsize=(6, 4))
@@ -643,8 +650,8 @@ class AnalisisEDS(tk.Frame):
             color='skyblue',
             edgecolor='black'
         )
-        ax.set_ylabel(f'Porcentaje ({percent_col})')
-        ax.set_title('Composición promedio de elementos')
+        ax.set_ylabel(f'Percent ({percent_col})')
+        ax.set_title('Average composition of elements')
         ax.grid(axis='y', linestyle='--', alpha=0.7)
 
         for bar in bars:
@@ -659,6 +666,6 @@ class AnalisisEDS(tk.Frame):
         canvas = FigureCanvasTkAgg(fig, master=win)
         canvas.draw()
         canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
-        ttk.Button(win, text="Cerrar", command=win.destroy).pack(pady=5)
+        ttk.Button(win, text="Close", command=win.destroy).pack(pady=5)
 
-        self.log_message_progress(f"Gráfico de barras generado ({percent_col}).", "INFO")
+        self.log_message_progress(f"Bar graph generated ({percent_col}).", "INFO")

@@ -24,7 +24,7 @@ def process_spectrum(
     muestra: str,
     cuentas_minimas: float,
     elementos_data: list,
-    output_dir: str = "salida",
+    output_dir: str = "output",
     units: str = "weight",
     umbral: float = 1.0,
     snr_umbral: float = 3.0, 
@@ -49,7 +49,7 @@ def process_spectrum(
             Area = a_s[0][idx] if idx < len(a_s[0]) else muestra
             Spot = a_s[1][idx] if idx < len(a_s[1]) else f"Punto_{idx+1}"
         except Exception as e:
-            logger.error(f"Error al procesar XML: {e}. Usando valores por defecto.")
+            logger.error(f"Error processing XML: {e}. Using default values.")
             Area = muestra
             Spot = f"Punto_{idx+1}"
     else:
@@ -92,15 +92,15 @@ def process_spectrum(
     # Si no es válido, registrar y salir
     if not result['valid']:
         with open(os.path.join(output_dir, "CuentasInsuficientes.txt"), "a") as f:
-            f.write(f"Eliminar Archivo - {Area} - {Spot} - Cuentas Insuficientes - #Cuentas: {total_counts:.0f}\n")
-        logger.info(f"Eliminar Archivo {Area} {Spot} - Cuentas Insuficientes #Cuentas: {total_counts:.0f}")
+            f.write(f"Delete File - {Area} - {Spot} - Insufficient Counts - #Cuentas: {total_counts:.0f}\n")
+        logger.info(f"Delete File {Area} {Spot} - Insufficient Counts #Cuentas: {total_counts:.0f}")
         return {
             'valid': False,
             'Area': Area,
             'Spot': Spot,
             'total_counts': total_counts,
             'composition': pd.DataFrame(),
-            'error': 'Cuentas insuficientes'
+            'error': 'Insufficient Counts'
         }
 
     # Actualizar elementos_data con los resultados
@@ -130,10 +130,10 @@ def process_spectrum(
             unit_label = 'at.%'
         with _print_lock:
             print("\n" + "="*60)
-            print(f"  Resultado EDS - {Area} {Spot}")
-            print(f"  Cuentas Totales: {total_counts:.2f}")
+            print(f"  EDS Result - {Area} {Spot}")
+            print(f"  Total Counts: {total_counts:.2f}")
             print("-"*60)
-            print(f"  {'Elemento':<10} {unit_label:>10} {'Intensidad':>12}")
+            print(f"  {'Elemen':<10} {unit_label:>10} {'Intensity':>12}")
             print("-"*60)
             for elem in elementos_data:
                 if elem['wt'] > 0.0:

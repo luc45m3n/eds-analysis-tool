@@ -24,10 +24,10 @@ def extract_tags(file_path):
             tags.append(element.attrib)
         return tags
     except ET.ParseError as e:
-        logger.error(f"Error al parsear XML {file_path}: {e}")
+        logger.error(f"Error parsing XML {file_path}: {e}")
         return []
     except Exception as e:
-        logger.error(f"Error inesperado al leer {file_path}: {e}")
+        logger.error(f"Unexpected error reading {file_path}: {e}")
         return []
 
 
@@ -40,10 +40,10 @@ def archivo_spot(file_paths):
         if tags:
             f = Path(file_path).stem
             archivo.append(f)
-            zona.append(tags[0].get("Label", "Desconocido"))
+            zona.append(tags[0].get("Label", "Unknown"))
         else:
             archivo.append(Path(file_path).stem)
-            zona.append("Desconocido")
+            zona.append("Unknown")
     return archivo, zona
 
 
@@ -63,7 +63,7 @@ def load_spectrum(file_path, lazy=False):
         signal.set_signal_type("EDS_TEM")
         return signal
     except Exception as e:
-        logger.error(f"Error al cargar {file_path}: {e}")
+        logger.error(f"Error Loading {file_path}: {e}")
         raise
 
 

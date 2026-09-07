@@ -230,7 +230,7 @@ def quantify_spectrum(
             if energy is None:
                 energy = fallback_energy_dict.get(elem)
             if energy is None:
-                logger.warning(f"No se pudo obtener energía para {line}")
+                logger.warning(f"Failed to retrieve energy for{line}")
             local_energy_dict[elem] = energy
             local_line_dict[elem] = line_type
 
@@ -239,11 +239,11 @@ def quantify_spectrum(
 
         if len(intensity_values) != len(elements_to_use):
             logger.error(
-                f"Mismatch: xray_lines actuales={list(signal.metadata.Sample.xray_lines)}, "
-                f"elementos esperados={elements_to_use}"
+                f"Mismatch: current xray_lines={list(signal.metadata.Sample.xray_lines)}, "
+                f"expected elements={elements_to_use}"
             )
             raise ValueError(
-                f"Número de intensidades ({len(intensity_values)}) no coincide con elementos ({len(elements_to_use)})"
+                f"Number of intensities ({len(intensity_values)}) does not match elements ({len(elements_to_use)})"
             )
 
         factors = [kfactor_dict[e] for e in elements_to_use]
@@ -262,12 +262,12 @@ def quantify_spectrum(
         out.loc[out['Intensidad'] < 0, percent_col] = 0.0
         return out, energy_dict, line_dict
 
-    logger.debug("ANTES de quantificar_con_elementos")
+    logger.debug("BEFORE quantificar_con_elementos")
     try:
         df, energy_dict, line_dict = recompute(element_names)
-        logger.debug(f"DESPUÉS de recompute: energy_dict={energy_dict}")
+        logger.debug(f"AFTER recompute: energy_dict={energy_dict}")
     except Exception as e:
-        logger.error(f"Error en cuantificación inicial: {e}")
+        logger.error(f"Error in initial quantification: {e}")
         return _build_result(valid=False, total_counts=total_counts, metadata=metadata, signal=signal, error=str(e))
 
     eliminated: List[str] = []
@@ -317,10 +317,10 @@ def quantify_spectrum(
             try:
                 df, energy_dict, line_dict = recompute(remaining)
             except Exception as e:
-                logger.error(f"Error en refinamiento: {e}")
+                logger.error(f"Error in refinement: {e}")
                 break
         else:
-            logger.warning(f"Refinamiento alcanzó el máximo de iteraciones ({max_iter})")
+            logger.warning(f"Refinement reached maximum iterations ({max_iter})")
 
     # Eliminar columna SNR temporal
     if 'SNR' in df.columns:

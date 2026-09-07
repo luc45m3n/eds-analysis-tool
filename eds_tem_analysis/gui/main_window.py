@@ -34,7 +34,7 @@ class App(tk.Tk):
         self.style.map("TButton", background=[("active", "#45a049")])
         self.style.configure("TFrame", background="#f0f0f0")
         self.style.configure("TLabel", background="#f0f0f0", font=("Helvetica", 10))
-        self.title("Análisis EDS")
+        self.title("EDS Analysis")
 
         self.create_menu()
 
@@ -56,26 +56,26 @@ class App(tk.Tk):
 
         # Pestañas
         self.tab_analisis = AnalisisEDS(self.notebook, app=self)
-        self.notebook.add(self.tab_analisis, text="Análisis EDS")
+        self.notebook.add(self.tab_analisis, text="EDS Analysis")
 
         self.tab_estadisticas = Estadisticas(self.notebook)
-        self.notebook.add(self.tab_estadisticas, text="Estadísticas")
+        self.notebook.add(self.tab_estadisticas, text="Statistic")
 
     def create_menu(self):
         menubar = tk.Menu(self)
         self.config(menu=menubar)
 
         help_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="Ayuda", menu=help_menu)
+        menubar.add_cascade(label="Help", menu=help_menu)
 
-        help_menu.add_command(label="Cita", command=self.open_citation)
+        help_menu.add_command(label="References", command=self.open_citation)
         help_menu.add_command(
-            label="Documentación de HyperSpy", command=self.open_web_pageHspy
+            label="HyperSpy documentation", command=self.open_web_pageHspy
         )
         help_menu.add_command(
-            label="Documentación de eXSpy", command=self.open_web_pageeXSpy
+            label="eXSpy documentation", command=self.open_web_pageeXSpy
         )
-        help_menu.add_command(label="Acerca de .", command=self.open_info)
+        help_menu.add_command(label="About...", command=self.open_info)
 
     def open_citation(self):
         webbrowser.open("https://zenodo.org/records/10709941")
@@ -88,24 +88,24 @@ class App(tk.Tk):
 
     def open_info(self):
         newWindow = tk.Toplevel(self)
-        newWindow.title("Acerca de...")
+        newWindow.title("About ...")
         newWindow.geometry("310x280")
         tk.Label(
-            newWindow, text="Semicuantificación EDS de TEM", font=("arial", 10, "bold")
+            newWindow, text="EDS de TEM semicuantification", font=("arial", 10, "bold")
         ).pack()
         tk.Label(
             newWindow,
-            text="Método de cuantificación aplicado: Cliff-Lorimer",
+            text="Cuantification method applied: Cliff-Lorimer",
             font=("arial", 10, "normal"),
         ).pack()
         tk.Label(
             newWindow,
-            text="""Código base en Python 3.0\n Librerías: \n\t-HyperSpy\n\t-Pandas\n\t-NumPy\n\t-Matplotlib\n\t-SciPy\n\t-xml\n\t-tkinter\n\t-PIL""",
+            text="""Python base 3.0 code\n Modules: \n\t-HyperSpy\n\t-Pandas\n\t-NumPy\n\t-Matplotlib\n\t-SciPy\n\t-xml\n\t-tkinter\n\t-PIL""",
             font=("arial", 10, "normal"),
         ).pack()
         tk.Label(
             newWindow,
-            text="Versión 2.0\nProgramado por: Lucas Menger\nConsultas: lucasmenger@cnea.gob.ar\n",
+            text="Versión 3.0\nDeveloped by: Lucas Menger\n lucasmenger@cnea.gob.ar\n",
             font=("arial", 10, "normal"),
         ).pack()
 
@@ -121,7 +121,7 @@ class App(tk.Tk):
             self.logo_label.image = self.logo_photo
             self.logo_label.pack(pady=10)
         except Exception as e:
-            print(f"Error al cargar el logo: {e}")
+            print(f"Error loading logo: {e}")
             self.logo_label = tk.Label(
                 self.main_frame, text="LOGO", font=("Helvetica", 24), bg="#f0f0f0"
             )
