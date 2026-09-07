@@ -487,6 +487,13 @@ class AnalisisEDS(tk.Frame):
 
         processed = 0
         for future in as_completed(self.futures):
+
+            if self.cancel_event.is_set():
+                self.master.after(0, lambda: self.log_message_progress(
+                "Análisis cancelado por el usuario.", "WARNING"
+                ))
+                break
+            
             i, spc_file = self.futures[future]
             out_text, err_text = "", ""
             try:

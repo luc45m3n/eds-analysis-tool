@@ -37,11 +37,11 @@ def process_spectrum(
     verbose: Si True, imprime resultados en consola.
     Retorna: (result, out_text, err_text, Area, Spot, df_composition)
     """
-    nombre_archivo = Path(spc_file).stem
+    
     # Comprobar cancelación
     if cancel_event and cancel_event.is_set():
         return None
-
+    
     # Determinar Area y Spot
     if xml_files:
         try:
@@ -141,7 +141,8 @@ def process_spectrum(
                     print(f"| {elem['elemento']} \t\t|    {elem['wt']:.2f} \t|   {elem['intensidad']:.2f}    |")
             print('################################################\n')
 
-
+    if cancel_event and cancel_event.is_set():
+        return None
     # --- Generar PDF (solo si está habilitado) ---
     if generate_pdf:
         percent_col = 'wt.%' if units == 'weight' else 'at.%'
