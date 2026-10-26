@@ -151,12 +151,14 @@ def quantify_spectrum(
     method: str = 'CL',
     composition_units: str = 'weight',
     auto_refine: bool = True,
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: Optional[Dict[str, Any]] = None,
+    use_deconvolution: bool = False,
+    integration_windows: Optional[List[float]] = None,
+    background_windows: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
     Cuantifica un espectro EDS-TEM utilizando HyperSpy.
     """
-
     if metadata is None:
         metadata = {}
 
@@ -177,21 +179,15 @@ def quantify_spectrum(
     # --- OBTENER ENERGIAS PARA SNR ---
     x = signal.axes_manager[0].axis
     y = signal.data
-    # NOTA: este energy_dict "inicial" ya no se descarta en silencio: se usa
-    # como fallback dentro de quantificar_con_elementos cuando _lookup_line_energy
-    # no puede resolver una energía por los caminos habituales. Antes se
-    # calculaba (con el costo de un get_lines_intensity() extra) y se tiraba
-    # a la basura apenas se llamaba a recompute().
     fallback_energy_dict = _get_energies_from_signal(signal, element_names)
+
+    # <-- ELIMINADO: el bloque integration_kwargs que estaba acá afuera
+    # (filtered_lines no existe en este scope, por eso fallaba)
 
     def quantificar_con_elementos(elements_list):
         """Realiza la cuantificación para una lista de elementos (ordenada)."""
         signal.set_elements(elements_list)
-        # Limpiar líneas previas para evitar arrastre de elementos eliminados
-        # NOTA: sin cambios respecto al original. Esta condición ('in' sobre
-        # signal.metadata) no se tocó porque afecta si xray_lines se limpia
-        # o no entre iteraciones — cambiarla podría alterar los resultados
-        # de refinamiento. Queda pendiente de confirmar con vos.
+
         if 'Sample.xray_lines' in signal.metadata:
             del signal.metadata.Sample.xray_lines
 
@@ -212,16 +208,6 @@ def quantify_spectrum(
         else:
             elements_to_use = elements_list
 
-        # NOTA: se eliminó el primer bloque que calculaba local_energy_dict /
-        # local_line_dict vía elements_db y era pisado íntegramente por un
-        # segundo bloque casi idéntico (código muerto). Además, al declarar
-        # 'local_energy_dict = {}' más abajo en la función original, Python
-        # trataba esa variable como local en TODO el cuerpo de la función,
-        # por lo que el primer bloque fallaba con UnboundLocalError antes de
-        # llegar siquiera a ejecutarse el segundo. Ahora hay un único bloque,
-        # que usa _lookup_line_energy (atributos -> diccionario -> None) y,
-        # si sigue sin resolver la energía, cae al fallback_energy_dict
-        # calculado una sola vez al principio de quantify_spectrum.
         local_energy_dict = {}
         local_line_dict = {}
         for line in filtered_lines:
@@ -230,11 +216,42 @@ def quantify_spectrum(
             if energy is None:
                 energy = fallback_energy_dict.get(elem)
             if energy is None:
-                logger.warning(f"Failed to retrieve energy for{line}")
+                logger.warning(f"Failed to retrieve energy for {line}")
             local_energy_dict[elem] = energy
             local_line_dict[elem] = line_type
 
-        intensities = signal.get_lines_intensity()
+        # <-- AQUÍ SÍ: filtered_lines ya está definido
+        integration_kwargs = {}
+
+        if use_deconvolution:
+            integration_kwargs['deconvolution'] = True
+            logger.info("Integration method: deconvolution")
+
+        elif integration_windows is not None:
+            # La GUI envía background_windows como lista [bw, bw]
+            # pero estimate_background_windows espera un float para windows_width
+            ww_float = float(background_windows) if background_windows else 1.0
+
+            try:
+                bw = signal.estimate_background_windows(
+                    xray_lines=filtered_lines,
+                    line_width=list(integration_windows),  # [wl, wr]
+                    windows_width=ww_float,                # float único
+                )
+                integration_kwargs['background_windows'] = bw
+                logger.info(
+                    f"Custom windows OK: line_width={integration_windows}, "
+                    f"windows_width={ww_float}"
+                )
+            except Exception as e:
+                logger.error(f"Error estimating background windows: {e}")
+                # Fallback: no pasar background_windows, dejar que exspy use default
+                integration_kwargs['background_windows'] = None
+
+        else:
+            logger.info("Integration method: default")
+
+        intensities = signal.get_lines_intensity(**integration_kwargs)
         intensity_values = [_scalar(i) for i in intensities]
 
         if len(intensity_values) != len(elements_to_use):
@@ -252,11 +269,9 @@ def quantify_spectrum(
         )
         comp_values = [_scalar(c) for c in composition]
 
-        # Devolver también los diccionarios de energía y línea
         return elements_to_use, intensity_values, comp_values, local_energy_dict, local_line_dict
 
-    def recompute(elements_list) -> tuple[pd.DataFrame, Dict[str, float], Dict[str, str]]:
-        """Cuantifica y arma el DataFrame para una lista de elementos."""
+    def recompute(elements_list) -> tuple:
         elems, intens, comps, energy_dict, line_dict = quantificar_con_elementos(sorted(elements_list))
         out = pd.DataFrame({'Element': elems, percent_col: comps, 'Intensidad': intens})
         out.loc[out['Intensidad'] < 0, percent_col] = 0.0
@@ -280,32 +295,26 @@ def quantify_spectrum(
                     df.loc[df.index[0], percent_col] = 100.0
                 break
 
-            # --- FILTRO SNR: Calcular SNR para todos los elementos ---
-            # Si no hay energías, usar intensity relativa como fallback
             snr_values = {}
             for elem in df['Element'].tolist():
                 if elem in energy_dict and energy_dict[elem] is not None:
                     snr = _calculate_snr(energy_dict[elem], y, x)
                 else:
-                    # Fallback: intensity relativa
                     max_intensity = df['Intensidad'].max() if not df.empty else 1
                     intensity_ratio = df[df['Element'] == elem]['Intensidad'].values[0] / max_intensity
                     snr = 5.0 if intensity_ratio >= 0.01 else 1.0
                 snr_values[elem] = snr
 
-            # Añadir SNR al DataFrame
             df['SNR'] = df['Element'].map(snr_values)
 
-            # --- CRITERIO DE ELIMINACIÓN: porcentaje < umbral O SNR < umbral_snr ---
             below_threshold = df[
                 (df[percent_col] < min_weight_percent) |
                 (df['SNR'] < snr_umbral)
             ]
 
             if len(below_threshold) == 0:
-                break  # todos por encima de ambos umbrales, listo
+                break
 
-            # Eliminar el elemento con menor porcentaje entre los que fallan
             min_idx = below_threshold[percent_col].idxmin()
             eliminated.append(df.loc[min_idx, 'Element'])
             remaining = df.drop(min_idx)['Element'].tolist()
@@ -322,7 +331,6 @@ def quantify_spectrum(
         else:
             logger.warning(f"Refinement reached maximum iterations ({max_iter})")
 
-    # Eliminar columna SNR temporal
     if 'SNR' in df.columns:
         df = df.drop(columns=['SNR'])
 

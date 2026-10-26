@@ -8,6 +8,7 @@ import logging
 from pathlib import Path
 import pandas as pd
 import threading
+from typing import List, Optional
 
 from core.quantification import quantify_spectrum
 from report.pdf_generator import generate_pdf_from_signal
@@ -30,7 +31,10 @@ def process_spectrum(
     snr_umbral: float = 3.0, 
     generate_pdf: bool = True,
     cancel_event: threading.Event = None,
-    verbose: bool = True
+    verbose: bool = True,
+    use_deconvolution: bool = False,
+    integration_windows: Optional[List[float]] = None,
+    background_windows: Optional[float] = None,
 ):
     """
     Procesa un archivo .spc individual, realizando la cuantificación y generando el PDF.
@@ -76,7 +80,10 @@ def process_spectrum(
         method='CL',
         composition_units=units,
         auto_refine=True,
-        metadata=metadata
+        metadata=metadata,
+        use_deconvolution=use_deconvolution,
+        integration_windows=integration_windows,
+        background_windows=background_windows,
     )
 
 

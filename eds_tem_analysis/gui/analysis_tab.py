@@ -10,6 +10,8 @@ import logging
 import sys
 import io
 from pathlib import Path
+from typing import List, Optional
+
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tkinter import scrolledtext
 
@@ -39,47 +41,88 @@ class AnalisisEDS(tk.Frame):
         self._original_stdout = sys.stdout
         self._original_stderr = sys.stderr
 
-        # --- Widgets existentes ---
-        self.select_button = ttk.Button(
-            self, text="Working directory", command=self.select_folder
+        # =========================================================================
+        # ESTRUCTURA CON SCROLL VERTICAL
+        # =========================================================================
+        # Frame contenedor principal (divide: canvas arriba + botones abajo fijos)
+        self.main_container = ttk.Frame(self)
+        self.main_container.pack(fill=tk.BOTH, expand=True)
+
+        # --- Canvas + Scrollbar (zona scrolleable) ---
+        canvas_frame = ttk.Frame(self.main_container)
+        canvas_frame.pack(fill=tk.BOTH, expand=True)
+
+        self.canvas = tk.Canvas(canvas_frame, highlightthickness=0)
+        self.scrollbar = ttk.Scrollbar(
+            canvas_frame, orient="vertical", command=self.canvas.yview
         )
-        self.select_button.pack(pady=5, fill=tk.X)
+        self.canvas.configure(yscrollcommand=self.scrollbar.set)
 
-        self.path_label = ttk.Label(self, text=self.current_path, wraplength=660)
-        self.path_label.pack(pady=5)
+        self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        list_frame = ttk.Frame(self)
-        list_frame.pack(fill=tk.BOTH, expand=True, pady=5)
+        # Frame interno donde van todos los widgets scrolleables
+        self.inner_frame = ttk.Frame(self.canvas)
+        self.canvas_window = self.canvas.create_window(
+            (0, 0), window=self.inner_frame, anchor="nw"
+        )
 
-        ttk.Label(self, text="Sample:").pack(pady=2, fill=tk.X)
-        self.muestra_entry = ttk.Entry(self, width=50)
-        self.muestra_entry.pack(pady=2, fill=tk.X)
+        # Actualizar scrollregion cuando cambie el tamaño del inner_frame
+        def _on_inner_configure(event):
+            self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+        self.inner_frame.bind("<Configure>", _on_inner_configure)
+
+        # Ajustar el ancho del inner_frame al ancho del canvas
+        def _on_canvas_configure(event):
+            self.canvas.itemconfig(self.canvas_window, width=event.width)
+        self.canvas.bind("<Configure>", _on_canvas_configure)
+
+        # Soporte para rueda del mouse (Windows + Linux)
+        def _on_mousewheel(event):
+            self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        self.canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        # Linux
+        self.canvas.bind_all("<Button-4>", lambda e: self.canvas.yview_scroll(-1, "units"))
+        self.canvas.bind_all("<Button-5>", lambda e: self.canvas.yview_scroll(1, "units"))
+
+        # =========================================================================
+        # WIDGETS (ahora dentro de inner_frame)
+        # =========================================================================
+
+        # --- Working directory ---
+        self.select_button = ttk.Button(
+            self.inner_frame, text="Working directory", command=self.select_folder
+        )
+        self.select_button.pack(pady=5, fill=tk.X, padx=5)
+
+        self.path_label = ttk.Label(
+            self.inner_frame, text=self.current_path, wraplength=660
+        )
+        self.path_label.pack(pady=5, padx=5)
+
+        list_frame = ttk.Frame(self.inner_frame)
+        list_frame.pack(fill=tk.BOTH, expand=True, pady=5, padx=5)
+
+        # --- Sample ---
+        ttk.Label(self.inner_frame, text="Sample:").pack(pady=2, fill=tk.X, padx=5)
+        self.muestra_entry = ttk.Entry(self.inner_frame, width=50)
+        self.muestra_entry.pack(pady=2, fill=tk.X, padx=5)
         self.muestra_entry.insert(0, "sample_name")
 
+        # --- Elements ---
         self.elementos_entry_var = tk.StringVar(value="Al ,Ca ,Fe, Mg ,Na, Si")
-        ttk.Label(self, text="Elements (comma-separated)").pack(pady=2, fill=tk.X)
+        ttk.Label(self.inner_frame, text="Elements (comma-separated)").pack(
+            pady=2, fill=tk.X, padx=5
+        )
         self.elementos_entry = ttk.Entry(
-            self, width=50, textvariable=self.elementos_entry_var
+            self.inner_frame, width=50, textvariable=self.elementos_entry_var
         )
-        self.elementos_entry.pack(pady=2, fill=tk.X)
+        self.elementos_entry.pack(pady=2, fill=tk.X, padx=5)
 
-        # --- Selección de unidades ---
-        units_frame = ttk.Frame(self)
-        units_frame.pack(pady=2, fill=tk.X)
-        ttk.Label(units_frame, text="Setting:").pack(side=tk.LEFT, padx=5)
-        self.units_var = tk.StringVar(value="wt")
-        units_combo = ttk.Combobox(
-            units_frame,
-            textvariable=self.units_var,
-            values=["wt", "at"],
-            state="readonly",
-            width=5
-        )
-        # --- Unidades + Cuentas mínimas (en una sola línea) ---
-        settings_row = ttk.Frame(self)
-        settings_row.pack(pady=2, fill=tk.X)
+        # --- Units + Min counts ---
+        settings_row = ttk.Frame(self.inner_frame)
+        settings_row.pack(pady=2, fill=tk.X, padx=5)
 
-        # Unidades (lado izquierdo)
         ttk.Label(settings_row, text="Unit:").pack(side=tk.LEFT, padx=5)
         self.units_var = tk.StringVar(value="wt")
         units_combo = ttk.Combobox(
@@ -92,10 +135,10 @@ class AnalisisEDS(tk.Frame):
         units_combo.pack(side=tk.LEFT, padx=(0, 5))
         ttk.Label(settings_row, text="(wt% / at%)").pack(side=tk.LEFT, padx=(0, 15))
 
-        # Separador vertical
-        ttk.Separator(settings_row, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=5)
+        ttk.Separator(settings_row, orient=tk.VERTICAL).pack(
+            side=tk.LEFT, fill=tk.Y, padx=5
+        )
 
-        # Cuentas mínimas (lado derecho)
         ttk.Label(settings_row, text="Min. Counts:").pack(side=tk.LEFT, padx=5)
         self.cuentas_minimas_var = tk.StringVar(value="100000")
         self.cuentas_minimas_entry = ttk.Entry(
@@ -105,24 +148,22 @@ class AnalisisEDS(tk.Frame):
         )
         self.cuentas_minimas_entry.pack(side=tk.LEFT, padx=5)
 
-        # --- Filter: Umbral + SNR (en una sola línea) ---
-        filter_frame = ttk.LabelFrame(self, text="Filter")
+        # --- Filter: Threshold + SNR ---
+        filter_frame = tk.LabelFrame(self.inner_frame, text="Filter", bg="#f0f0f0", fg="black")
         filter_frame.pack(pady=4, fill=tk.X, padx=5)
 
-        # Fila interna para Umbral y SNR
-        filter_row = ttk.Frame(filter_frame)
+        filter_row = tk.Frame(filter_frame,  bg="#f0f0f0")
         filter_row.pack(fill=tk.X, pady=4, padx=5)
 
-        # Umbral de filtrado
         ttk.Label(filter_row, text="Threshold (%):").pack(side=tk.LEFT, padx=(0, 5))
         self.umbral_var = tk.StringVar(value="1.0")
         self.umbral_entry = ttk.Entry(filter_row, textvariable=self.umbral_var, width=6)
         self.umbral_entry.pack(side=tk.LEFT, padx=(0, 15))
 
-        # Separador vertical
-        ttk.Separator(filter_row, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=5)
+        ttk.Separator(filter_row, orient=tk.VERTICAL).pack(
+            side=tk.LEFT, fill=tk.Y, padx=5
+        )
 
-        # Sensibilidad SNR
         ttk.Label(filter_row, text="SNR:").pack(side=tk.LEFT, padx=(0, 5))
         self.snr_var = tk.StringVar(value="3.0")
         snr_combo = ttk.Combobox(
@@ -135,10 +176,64 @@ class AnalisisEDS(tk.Frame):
         snr_combo.pack(side=tk.LEFT, padx=(0, 5))
         ttk.Label(filter_row, text="(higher = stricter)").pack(side=tk.LEFT)
 
-        # --- Carpeta de salida ---
-        ttk.Label(self, text="Output Folder:").pack(pady=2, fill=tk.X)
-        self.output_dir_frame = ttk.Frame(self)
-        self.output_dir_frame.pack(fill=tk.X, pady=2)
+        # --- Integration Method ---
+        integration_frame = tk.LabelFrame(self.inner_frame, text="Integration Method", bg="#f0f0f0", fg="black")
+        integration_frame.pack(pady=4, fill=tk.X, padx=5)
+
+        integration_row = tk.Frame(integration_frame, bg="#f0f0f0")
+        integration_row.pack(fill=tk.X, pady=4, padx=5)
+
+        ttk.Label(integration_row, text="Method:").pack(side=tk.LEFT, padx=(0, 5))
+        self.integration_method_var = tk.StringVar(value="default")
+        integration_combo = ttk.Combobox(
+            integration_row,
+            textvariable=self.integration_method_var,
+            values=["default", "deconvolution", "custom_windows"],
+            state="readonly",
+            width=15
+        )
+        integration_combo.pack(side=tk.LEFT, padx=(0, 15))
+
+        # Parámetros para ventanas personalizadas (oculto por defecto)
+        self.custom_params_frame = tk.Frame(integration_frame, bg="#f0f0f0")
+
+        ttk.Label(self.custom_params_frame, text="Window Left:").pack(side=tk.LEFT, padx=(0, 5))
+        self.window_left_var = tk.StringVar(value="2.0")
+        ttk.Entry(
+            self.custom_params_frame,
+            textvariable=self.window_left_var,
+            width=6
+        ).pack(side=tk.LEFT, padx=(0, 10))
+
+        ttk.Label(self.custom_params_frame, text="Window Right:").pack(side=tk.LEFT, padx=(0, 5))
+        self.window_right_var = tk.StringVar(value="2.0")
+        ttk.Entry(
+            self.custom_params_frame,
+            textvariable=self.window_right_var,
+            width=6
+        ).pack(side=tk.LEFT, padx=(0, 15))
+
+        ttk.Label(self.custom_params_frame, text="Background:").pack(side=tk.LEFT, padx=(0, 5))
+        self.bg_width_var = tk.StringVar(value="1.0")
+        ttk.Entry(
+            self.custom_params_frame,
+            textvariable=self.bg_width_var,
+            width=6
+        ).pack(side=tk.LEFT)
+
+        # Mostrar/ocultar según método
+        def on_integration_method_change(*args):
+            if self.integration_method_var.get() == "custom_windows":
+                self.custom_params_frame.pack(fill=tk.X, pady=4, padx=5)
+            else:
+                self.custom_params_frame.pack_forget()
+
+        self.integration_method_var.trace("w", on_integration_method_change)
+
+        # --- Output Folder ---
+        ttk.Label(self.inner_frame, text="Output Folder:").pack(pady=2, fill=tk.X, padx=5)
+        self.output_dir_frame = ttk.Frame(self.inner_frame)
+        self.output_dir_frame.pack(fill=tk.X, pady=2, padx=5)
         self.output_dir_entry = ttk.Entry(self.output_dir_frame, width=40)
         self.output_dir_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
         self.output_dir_entry.insert(0, "output")
@@ -146,9 +241,10 @@ class AnalisisEDS(tk.Frame):
             self.output_dir_frame, text="Select", command=self.select_output_dir
         )
         self.output_dir_button.pack(side=tk.RIGHT, padx=(5, 0))
-        # generar pdf
-        pdf_frame = ttk.Frame(self)
-        pdf_frame.pack(pady=2, fill=tk.X)
+
+        # --- Generate PDF ---
+        pdf_frame = ttk.Frame(self.inner_frame)
+        pdf_frame.pack(pady=2, fill=tk.X, padx=5)
         self.generate_pdf_var = tk.BooleanVar(value=True)
         pdf_check = ttk.Checkbutton(
             pdf_frame,
@@ -157,7 +253,7 @@ class AnalisisEDS(tk.Frame):
         )
         pdf_check.pack(side=tk.LEFT, padx=5)
 
-         # --- Lista de archivos ---
+        # --- File list ---
         self.file_listbox = tk.Listbox(
             list_frame,
             width=70,
@@ -169,16 +265,17 @@ class AnalisisEDS(tk.Frame):
         )
         self.file_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         self.file_listbox.bind("<Double-1>", self.on_double_click)
-
-        scrollbar = ttk.Scrollbar(
+        scrollbar_list = ttk.Scrollbar(
             list_frame, orient="vertical", command=self.file_listbox.yview
         )
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        self.file_listbox.config(yscrollcommand=scrollbar.set)
+        scrollbar_list.pack(side=tk.RIGHT, fill=tk.Y)
+        self.file_listbox.config(yscrollcommand=scrollbar_list.set)
 
-        # --- Botones de control ---
-        self.button_frame = ttk.Frame(self, style="TFrame")
-        self.button_frame.pack(fill=tk.X, pady=10)
+        # =========================================================================
+        # BOTONES DE CONTROL (FUERA del canvas, siempre visibles abajo)
+        # =========================================================================
+        self.button_frame = ttk.Frame(self.main_container, style="TFrame")
+        self.button_frame.pack(fill=tk.X, pady=10, padx=5, side=tk.BOTTOM)
 
         self.analyze_button = ttk.Button(
             self.button_frame, text="EDS Analysis ", command=self.start_analysis
@@ -442,7 +539,26 @@ class AnalisisEDS(tk.Frame):
             if not spc_files:
                 messagebox.showerror("Error", ".spc, files not found.")
                 return None
-            return (muestra, cuentas_minimas, units, elementos_data, output_dir, path, spc_files, xml_files, umbral)
+                        # --- Parámetros de integración ---
+            integration_method = self.integration_method_var.get()
+            use_deconvolution = (integration_method == "deconvolution")
+            integration_windows = None
+            background_windows = None
+
+            if integration_method == "custom_windows":
+                try:
+                    wl = float(self.window_left_var.get())
+                    wr = float(self.window_right_var.get())
+                    bw = float(self.bg_width_var.get())
+                    integration_windows = [wl, wr]  
+                    background_windows = bw         
+                except ValueError:
+                    messagebox.showerror("Error", "Window parameters must be numbers.")
+                    return None
+
+            return (muestra, cuentas_minimas, units, elementos_data, output_dir, path,
+                    spc_files, xml_files, umbral, use_deconvolution,
+                    integration_windows, background_windows)
         
         generate_pdf = self.generate_pdf_var.get()
         # Obtener parámetros (con timeout)
@@ -461,13 +577,15 @@ class AnalisisEDS(tk.Frame):
             self.master.after(0, lambda: self.close_progress_window())
             return
 
-        (muestra, cuentas_minimas, units, elementos_data, output_dir, path, spc_files, xml_files, umbral) = params
+        (muestra, cuentas_minimas, units, elementos_data, output_dir, path,
+         spc_files, xml_files, umbral, use_deconvolution,
+         integration_windows, background_windows) = params
 
         total = len(spc_files)
 
         self.master.after(0, lambda: self.update_progress(0, total, "Starting..."))
         self.master.after(0, lambda: self.log_message_progress(f"Starting analysis of {total} specters"))
-        self.master.after(0, lambda: self.log_message_progress(f"Units: {units}, Minimal counts: {cuentas_minimas}, Umbral: {umbral}%"))
+        self.master.after(0, lambda: self.log_message_progress(f"Units: {units}, Minimal counts: {cuentas_minimas}, Threshold: {umbral}%"))
         self.master.after(0, lambda: self.log_message_progress(f"Output folder: {output_dir}"))
 
         self.master.after(0, lambda: self.analyze_button.config(state="disabled"))
@@ -498,7 +616,10 @@ class AnalisisEDS(tk.Frame):
                 snr_umbral=snr_umbral,
                 generate_pdf=generate_pdf, 
                 cancel_event=self.cancel_event,
-                verbose=True
+                verbose=True,
+                use_deconvolution=use_deconvolution,
+                integration_windows=integration_windows,
+                background_windows=background_windows,
             )
             self.futures[future] = (i, spc_file)
 
@@ -539,7 +660,7 @@ class AnalisisEDS(tk.Frame):
                                 percent = row.get('wt.%', 0)
                             else:
                                 percent = row.get('at.%', 0)
-                            intensity = row.get('Intensidad', 0)
+                            intensity = row.get('Intensity', 0)
 
                             elem = row['Element']
                             energy = result.get('energy_dict', {}).get(elem, '')
@@ -588,12 +709,12 @@ class AnalisisEDS(tk.Frame):
             if all_dfs:
                 combined = pd.concat(all_dfs, ignore_index=True)
                 promedio = combined.groupby('Element')[percent_col].mean().reset_index()
-                promedio.columns = ['Element', f'Promedio_{unit_label}']
+                promedio.columns = ['Element', f'averge_{unit_label}']
             
                 with open(txt_promedio_path, 'w') as f:
                     f.write(f"Element;{unit_label}\n")
                     for _, row in promedio.iterrows():
-                        f.write(f"{row['Element']};{row[f'Promedio_{unit_label}']:.2f}\n")
+                        f.write(f"{row['Element']};{row[f'averge_{unit_label}']:.2f}\n")
                 
                 self.log_message_progress(f"Averages file saved: {txt_promedio_path}", "INFO")
 

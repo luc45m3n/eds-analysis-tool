@@ -24,6 +24,7 @@ class App(tk.Tk):
 
         self.style = ttk.Style()
         self.style.theme_use("clam")
+        bg_color = "#f0f0f0"
         self.style.configure(
             "TButton",
             padding=10,
@@ -32,9 +33,33 @@ class App(tk.Tk):
             foreground="white",
         )
         self.style.map("TButton", background=[("active", "#45a049")])
-        self.style.configure("TFrame", background="#f0f0f0")
-        self.style.configure("TLabel", background="#f0f0f0", font=("Helvetica", 10))
+        self.style.configure("TFrame", background=bg_color)
+        self.style.configure("TLabel", background=bg_color, font=("Helvetica", 10))
+        self.style.configure("TLabelFrame", background=bg_color)
+        self.style.configure("TLabelFrame.Label", background=bg_color, 
+                             font=("Helvetica", 10, "bold"))
+        self.style.configure("TCheckbutton", background=bg_color)
+        self.style.configure("TRadiobutton", background=bg_color)
+        self.style.configure("TCombobox", fieldbackground="white", 
+                             background=bg_color)
+        self.style.configure("TEntry", fieldbackground="white")
+
+        # Para el Notebook (pestañas)
+        self.style.configure("TNotebook", background=bg_color)
+        self.style.configure("TNotebook.Tab", background=bg_color, padding=[10, 5])
+        self.style.map("TNotebook.Tab", background=[("selected", bg_color)])
         self.title("EDS Analysis")
+
+        window_width = 700
+        window_height = 580
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+
+        x = int((screen_width / 2) - (window_width / 2))
+        y = int((screen_height / 2) - (window_height / 2))
+
+        self.geometry(f"{window_width}x{window_height}+{x}+{y}")
+        self.minsize(700, 500)
 
         self.create_menu()
 
@@ -113,7 +138,7 @@ class App(tk.Tk):
         try:
             logo_path = RESOURCES_DIR / "logo.png"
             logo_image = Image.open(logo_path)
-            logo_image.thumbnail((120, 60), Image.LANCZOS)
+            logo_image.thumbnail((90, 75), Image.LANCZOS)
             self.logo_photo = ImageTk.PhotoImage(logo_image)
             self.logo_label = tk.Label(
                 self.top_frame, image=self.logo_photo, bg="#f0f0f0"
@@ -123,6 +148,6 @@ class App(tk.Tk):
         except Exception as e:
             print(f"Error loading logo: {e}")
             self.logo_label = tk.Label(
-                self.main_frame, text="LOGO", font=("Helvetica", 24), bg="#f0f0f0"
+                self.main_frame, text="LOGO", font=("Helvetica", 24), bg= "#f0f0f0"
             )
             self.logo_label.pack(pady=10)
