@@ -1,16 +1,19 @@
 # EDS-TEM Analysis Tool
-A Python GUI for semi-quantitative EDS analysis in TEM. It manages batch processing and signal filtering, while relying on HyperSpy and ExSpy for the core computational work.
+
+A Python GUI for semi-quantitative EDS analysis in TEM. It manages batch processing and signal filtering, while relying on HyperSpy and eXSpy for the core computational work.
 
 ## Features
 
 - **Cliff-Lorimer quantification** with user-defined K-factors
+- **Flexible Peak Integration:** Choose between `Default` (standard background), `Deconvolution` (for overlapping peaks), or `Custom Windows` (user-defined integration/background widths in FWHM).
 - **Iterative element refinement** with dual threshold (weight % and Signal-to-Noise Ratio)
 - **Parallel processing** for fast batch analysis (ThreadPoolExecutor)
-- **Interactive GUI** built with Tkinter (analysis and statistics tabs)
+- **Interactive GUI** built with Tkinter (scrollable analysis tab & statistics)
 - **Automatic PDF report generation** with annotated X-ray peaks
 - **Live progress tracking** with real-time logging
 - **Configurable SNR filter** (1.0 – 10.0) for robust peak detection
 - **Support for wt.% and at.%** output units
+- **Robust Statistics Tab:** Scatter plots correctly aligned by spectrum, handling undetected elements gracefully.
 - **Batch processing** of `.spc` spectral files with optional `.xml` metadata
 
 ---
@@ -65,7 +68,9 @@ python EDS_TEM_GUI.py
 4- **Choose units** – `wt.%` or `at.%`.  
 5- **Set refinement threshold** – Minimum weight % to retain an element (default: 1.0%).  
 6- **Adjust SNR sensitivity** – SNR threshold (default: 3.0; higher = more stringent).  
-7- **Click "Analyze EDS"** – Processing begins in parallel.  
+7- **Select Integration Method** – Choose default, deconvolution, or custom_windows. If using   
+custom windows, specify the Left/Right integration and Background widths (in FWHM).
+8- **Click "Analyze EDS"** – Processing begins in parallel.  
 
 ### Output Files  
 |File | Description|  
