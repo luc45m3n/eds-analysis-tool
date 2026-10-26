@@ -50,7 +50,7 @@ class App(tk.Tk):
         self.style.map("TNotebook.Tab", background=[("selected", bg_color)])
         self.title("EDS Analysis")
 
-        window_width = 700
+        window_width = 500
         window_height = 580
         screen_width = self.winfo_screenwidth()
         screen_height = self.winfo_screenheight()
@@ -59,7 +59,7 @@ class App(tk.Tk):
         y = int((screen_height / 2) - (window_height / 2))
 
         self.geometry(f"{window_width}x{window_height}+{x}+{y}")
-        self.minsize(700, 500)
+        self.minsize(500, 500)
 
         self.create_menu()
 

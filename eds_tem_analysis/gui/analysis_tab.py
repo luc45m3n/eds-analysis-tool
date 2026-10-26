@@ -630,7 +630,7 @@ class AnalisisEDS(tk.Frame):
         os.makedirs(output_dir, exist_ok=True)
 
         with open(txt_datos_path, 'w') as f:
-            f.write(f"Element;{unit_label};Intensity;File\n")
+            f.write(f"Element;{unit_label};Intensity;Method;File\n")
 
         processed = 0
         for future in as_completed(self.futures):
@@ -655,6 +655,7 @@ class AnalisisEDS(tk.Frame):
 
                     # --- ESCRIBIR DATOS COMPLETOS (APPEND) ---
                     with open(txt_datos_path, 'a') as f:
+                        method_used = result.get('method', 'default')
                         for _, row in df.iterrows():
                             if units == 'weight':
                                 percent = row.get('wt.%', 0)
@@ -665,7 +666,7 @@ class AnalisisEDS(tk.Frame):
                             elem = row['Element']
                             energy = result.get('energy_dict', {}).get(elem, '')
                             line = result.get('line_dict', {}).get(elem, '')
-                            f.write(f"{row['Element']};{percent:.2f};{intensity:.2f};{nombre_archivo}\n")
+                            f.write(f"{row['Element']};{percent:.2f};{intensity:.2f};{method_used};{nombre_archivo}\n")
 
                     if not df.empty:
                         elements = ', '.join(df['Element'].tolist())

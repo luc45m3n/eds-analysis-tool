@@ -123,7 +123,7 @@ def process_spectrum(
                     elem['wt'] = row['wt.%']
                 elif 'at.%' in row:
                     elem['wt'] = row['at.%']
-                elem['intensity'] = row['Intensidad']
+                elem['intensity'] = row['Intensity']
                 if elem_name in energy_dict:
                     elem['energia_keV'] = energy_dict[elem_name]
                     elem['linea'] = line_dict.get(elem_name, 'Ka')
@@ -135,10 +135,14 @@ def process_spectrum(
             unit_label = 'wt.%'
         else:
             unit_label = 'at.%'
+        
+        method_used = result.get('method', 'default')
+
         with _print_lock:
             print("\n" + "="*60)
             print(f"  EDS Result - {Area} {Spot}")
             print(f"  Total Counts: {total_counts:.2f}")
+            print(f"  Method: {method_used}")
             print("-"*60)
             print(f"  {'Elemen':<10} {unit_label:>10} {'Intensity':>12}")
             print("-"*60)
@@ -158,15 +162,15 @@ def process_spectrum(
         filtro_df = df[df[percent_col] > 0].copy()
         
         if not filtro_df.empty:
-            # Asegurar columna Intensidad
-            if 'Intensidad' not in filtro_df.columns:
+            # Asegurar columna Intensity
+            if 'Intensity' not in filtro_df.columns:
                 intensityes = []
                 for elem in filtro_df['Element']:
                     for e in elementos_data:
                         if e['elemento'] == elem:
                             intensityes.append(e['intensity'])
                             break
-                filtro_df['Intensidad'] = intensityes
+                filtro_df['Intensity'] = intensityes
 
             def sanitize_filename(name):
                 import re
@@ -195,5 +199,6 @@ def process_spectrum(
         'energy_dict': energy_dict,
         'line_dict': line_dict,
         'nombre_archivo_spc': Path(spc_file).name,
+        'method': result.get('method', 'default'),
         'error': None
     }

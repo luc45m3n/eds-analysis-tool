@@ -24,6 +24,7 @@ def _build_result(
     energy_dict: Optional[Dict[str, float]] = None,
     line_dict: Optional[Dict[str, str]] = None,
     error: Optional[str] = None,
+    method: str = "default",
 ) -> Dict[str, Any]:
     """
     Arma el diccionario de resultado con un esquema consistente en TODOS
@@ -45,6 +46,7 @@ def _build_result(
         'metadata': metadata,
         'signal': signal,
         'error': error,
+        'method': method,
     }
 
 
@@ -161,6 +163,14 @@ def quantify_spectrum(
     """
     if metadata is None:
         metadata = {}
+    # Determinar el método de integración (es fijo para toda la ejecución)
+    
+    if use_deconvolution:
+        method_used = "deconvolution"
+    elif integration_windows is not None:
+        method_used = "custom_windows"
+    else:
+        method_used = "default"
 
     try:
         signal.set_signal_type("EDS_TEM")
@@ -170,7 +180,11 @@ def quantify_spectrum(
     total_counts = float(signal.data.sum())
     if total_counts < min_total_counts:
         logger.info(f"Cuentas insuficientes: {total_counts:.0f} < {min_total_counts}")
-        return _build_result(valid=False, total_counts=total_counts, metadata=metadata, signal=signal)
+        return _build_result(valid=False, 
+                             total_counts=total_counts, 
+                             metadata=metadata, 
+                             signal=signal, 
+                             method=method_used)
 
     kfactor_dict = {elem['elemento']: elem['kfactor'] for elem in elements_data}
     element_names = sorted(kfactor_dict.keys())
@@ -181,8 +195,7 @@ def quantify_spectrum(
     y = signal.data
     fallback_energy_dict = _get_energies_from_signal(signal, element_names)
 
-    # <-- ELIMINADO: el bloque integration_kwargs que estaba acá afuera
-    # (filtered_lines no existe en este scope, por eso fallaba)
+       
 
     def quantificar_con_elementos(elements_list):
         """Realiza la cuantificación para una lista de elementos (ordenada)."""
@@ -273,8 +286,8 @@ def quantify_spectrum(
 
     def recompute(elements_list) -> tuple:
         elems, intens, comps, energy_dict, line_dict = quantificar_con_elementos(sorted(elements_list))
-        out = pd.DataFrame({'Element': elems, percent_col: comps, 'Intensidad': intens})
-        out.loc[out['Intensidad'] < 0, percent_col] = 0.0
+        out = pd.DataFrame({'Element': elems, percent_col: comps, 'Intensity': intens})
+        out.loc[out['Intensity'] < 0, percent_col] = 0.0
         return out, energy_dict, line_dict
 
     logger.debug("BEFORE quantificar_con_elementos")
@@ -283,7 +296,13 @@ def quantify_spectrum(
         logger.debug(f"AFTER recompute: energy_dict={energy_dict}")
     except Exception as e:
         logger.error(f"Error in initial quantification: {e}")
-        return _build_result(valid=False, total_counts=total_counts, metadata=metadata, signal=signal, error=str(e))
+        return _build_result(valid=False, 
+                            total_counts=total_counts, 
+                            metadata=metadata, 
+                            signal=signal, 
+                            error=str(e),
+                            method=method_used)
+                             
 
     eliminated: List[str] = []
 
@@ -300,8 +319,8 @@ def quantify_spectrum(
                 if elem in energy_dict and energy_dict[elem] is not None:
                     snr = _calculate_snr(energy_dict[elem], y, x)
                 else:
-                    max_intensity = df['Intensidad'].max() if not df.empty else 1
-                    intensity_ratio = df[df['Element'] == elem]['Intensidad'].values[0] / max_intensity
+                    max_intensity = df['Intensity'].max() if not df.empty else 1
+                    intensity_ratio = df[df['Element'] == elem]['Intensity'].values[0] / max_intensity
                     snr = 5.0 if intensity_ratio >= 0.01 else 1.0
                 snr_values[elem] = snr
 
@@ -343,4 +362,5 @@ def quantify_spectrum(
         eliminated=eliminated,
         energy_dict=energy_dict,
         line_dict=line_dict,
+        method=method_used,
     )

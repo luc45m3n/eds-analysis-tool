@@ -105,6 +105,7 @@ class Estadisticas(tk.Frame):
         ax.set_yticks([])
 
     def _get_percent_col(self, df):
+        """Detecta la columna de porcentaje (wt.% o at.%) en el DataFrame."""
         if df is None or df.empty:
             return None
         if 'wt.%' in df.columns:
@@ -145,9 +146,9 @@ class Estadisticas(tk.Frame):
                     self.update_scatter_plot()
                     messagebox.showinfo("Reload", "Scatter data reloaded.")
                 else:
-                    messagebox.showerror("Error", "Completed data fiel does not exist.")
+                    messagebox.showerror("Error", "Completed data file does not exist.")
             except Exception as e:
-                messagebox.showerror("Error", f"Could not reolad:\n{e}")
+                messagebox.showerror("Error", f"Could not reload:\n{e}")
         
         if self.current_promedio_path:
             try:
@@ -156,7 +157,7 @@ class Estadisticas(tk.Frame):
                     self.df_promedio = pd.read_csv(self.current_promedio_path, sep=";", decimal=".")
                     self.update_bar_chart()
                 else:
-                    messagebox.showerror("Error", "Average file no longer exist.")
+                    messagebox.showerror("Error", "Average file no longer exists.")
             except Exception as e:
                 messagebox.showerror("Error", f"Could not load average:\n{e}")
 
@@ -169,9 +170,9 @@ class Estadisticas(tk.Frame):
                 df_temp = pd.read_csv(file_path, sep=";", decimal=".")
                 
                 # Detectar si es archivo de promedios o datos completos
-                # Si tiene columna 'Archivo' → datos completos
+                # Si tiene columna 'File' → datos completos (formato largo)
                 # Si solo tiene 2 columnas (Element, wt.%) → promedio
-                if 'Archivo' in df_temp.columns:
+                if 'File' in df_temp.columns:
                     # Archivo de datos completos
                     self.df = df_temp
                     self.actualizar_checkboxes()
@@ -182,8 +183,7 @@ class Estadisticas(tk.Frame):
                     self.df_promedio = df_temp
                     self.update_bar_chart()
                     messagebox.showinfo("Info", "Average file loaded. Bar plot available.")
-                    # Deshabilitar dispersión (no hay datos suficientes)
-                    self._show_empty_message(self.scatter_ax, "No available for average file")
+                    self._show_empty_message(self.scatter_ax, "Not available for average file")
                     self.scatter_canvas.draw()
                     
             except Exception as e:
@@ -214,7 +214,7 @@ class Estadisticas(tk.Frame):
     def update_bar_chart_from_results(self):
         """Genera gráfico de barras desde self.results (resultados del análisis)."""
         if not self.results:
-            self._show_empty_message(self.bar_ax, "No hay datos para gráfico")
+            self._show_empty_message(self.bar_ax, "No data available for plot")
             self.bar_canvas.draw()
             return
 
@@ -287,7 +287,14 @@ class Estadisticas(tk.Frame):
 
     # ----- GRÁFICO DE DISPERSIÓN (desde datos completos) -----
     def update_scatter_plot(self):
-        """Actualiza el gráfico de dispersión con los elementos seleccionados."""
+        """
+        Actualiza el gráfico de dispersión con los elementos seleccionados.
+        
+        El archivo de datos completos está en formato largo (una fila por
+        elemento × espectro). Para graficar correlaciones entre elementos,
+        necesitamos alinear los datos por espectro, lo que se logra pivoteando
+        el DataFrame: filas = espectros, columnas = elementos.
+        """
         if self.df is None:
             self._show_empty_message(self.scatter_ax, "Load completed data file")
             self.scatter_canvas.draw()
@@ -312,26 +319,50 @@ class Estadisticas(tk.Frame):
             self.scatter_canvas.draw()
             return
 
-        x_data = self.df[self.df["Element"] == x_element][percent_col].reset_index(drop=True)
-
-        if x_data.empty:
-            self._show_empty_message(self.scatter_ax, f"No data for '{x_element}'")
+        # Pivotear el DataFrame: filas = espectros (File), columnas = elementos
+        # Esto alinea correctamente los datos por espectro
+        try:
+            df_pivot = self.df.pivot_table(
+                index='File',
+                columns='Element',
+                values=percent_col,
+                aggfunc='first'
+            )
+        except Exception as e:
+            self._show_empty_message(self.scatter_ax, f"Error pivoting data: {e}")
             self.scatter_canvas.draw()
             return
 
+        # Verificar que los elementos seleccionados existan en el pivote
+        if x_element not in df_pivot.columns:
+            self._show_empty_message(self.scatter_ax, f"Element '{x_element}' not found in data")
+            self.scatter_canvas.draw()
+            return
+
+        # Eliminar filas (espectros) donde falten datos de X o de algún Y
+        cols_needed = [x_element] + y_elements
+        df_clean = df_pivot[cols_needed].fillna(0)
+
+        if df_clean.empty:
+            self._show_empty_message(self.scatter_ax, 
+                                     "No complete data for selected elements\n"
+                                     "(some spectra may be missing one of them)")
+            self.scatter_canvas.draw()
+            return
+
+        x_data = df_clean[x_element]
+
         self.scatter_ax.clear()
-        colors = ['blue', 'red', 'green', 'orange', 'purple', 'brown', 'pink', 'gray', 'olive', 'cyan']
+        colors = ['blue', 'red', 'green', 'orange', 'purple', 
+                  'brown', 'pink', 'gray', 'olive', 'cyan']
 
         for i, y_element in enumerate(y_elements):
-            y_data = self.df[self.df["Element"] == y_element][percent_col].reset_index(drop=True)
-            min_len = min(len(x_data), len(y_data))
-            if min_len == 0:
+            if y_element not in df_clean.columns:
                 continue
-            x_plot = x_data[:min_len]
-            y_plot = y_data[:min_len]
+            y_data = df_clean[y_element]
             color = colors[i % len(colors)]
             self.scatter_ax.scatter(
-                x_plot, y_plot,
+                x_data, y_data,
                 label=y_element,
                 alpha=0.6,
                 s=30,
@@ -340,8 +371,8 @@ class Estadisticas(tk.Frame):
                 linewidth=0.5
             )
 
-        self.scatter_ax.set_xlabel(f"{x_element} {percent_col}")
-        self.scatter_ax.set_ylabel(percent_col)
+        self.scatter_ax.set_xlabel(f"{x_element} ({percent_col})")
+        self.scatter_ax.set_ylabel(f"{', '.join(y_elements)} ({percent_col})")
         self.scatter_ax.set_title(f'Scatter: {x_element} vs other elements')
         self.scatter_ax.legend()
         self.scatter_ax.grid(True, alpha=0.3)
