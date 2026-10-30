@@ -1,0 +1,1 @@
+python tests\benchmark_methods.py --input_dir "F:/TEM/Muestra5C" --elements "Al, Fe, Si" --num_samples 10 --output "benchmark_resultados.csv"

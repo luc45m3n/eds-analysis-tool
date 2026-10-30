@@ -1,0 +1,16 @@
+Delete File - spectrum20240215150333346_0 - New Sample | Area 1 | Full Area 1 - Insufficient Counts - #Cuentas: 1095
+Delete File - spectrum20240215150752220_0 - New Sample | Area 1 | EDS Spot 2 - Insufficient Counts - #Cuentas: 66166
+Delete File - spectrum20240215150606841_0 - New Sample | Area 1 | EDS Spot 1 - Insufficient Counts - #Cuentas: 16669
+Delete File - spectrum20240215154104365_0 - New Sample | Area 5 | EDS Spot 1 - Insufficient Counts - #Cuentas: 24165
+Delete File - spectrum20240215154248217_0 - New Sample | Area 5 | EDS Spot 2 - Insufficient Counts - #Cuentas: 5892
+Delete File - spectrum20240215154432150_0 - New Sample | Area 5 | EDS Spot 3 - Insufficient Counts - #Cuentas: 27594
+Delete File - spectrum20240215155419300_0 - New Sample | Area 7 | EDS Spot 3 - Insufficient Counts - #Cuentas: 61050
+Delete File - spectrum20240215155938798_0 - New Sample | Area 8 | EDS Spot 1 - Insufficient Counts - #Cuentas: 26510
+Delete File - spectrum20240215160122686_0 - New Sample | Area 8 | EDS Spot 2 - Insufficient Counts - #Cuentas: 34789
+Delete File - spectrum20240215160306666_0 - New Sample | Area 8 | EDS Spot 3 - Insufficient Counts - #Cuentas: 25899
+Delete File - spectrum20240215161111388_0 - New Sample | Area 9 | EDS Spot 1 - Insufficient Counts - #Cuentas: 92928
+Delete File - spectrum20240215161435788_0 - New Sample | Area 9 | EDS Spot 2 - Insufficient Counts - #Cuentas: 59001
+Delete File - spectrum20240215162949146_0 - New Sample | Area 10 | EDS Spot 3 - Insufficient Counts - #Cuentas: 59618
+Delete File - spectrum20240221162817906_0 - New Sample | Area 2 | EDS Spot 1 - Insufficient Counts - #Cuentas: 13614
+Delete File - spectrum20240221163035307_0 - New Sample | Area 2 | EDS Spot 2 - Insufficient Counts - #Cuentas: 6473
+Delete File - spectrum20240221163250644_0 - New Sample | Area 2 | EDS Spot 3 - Insufficient Counts - #Cuentas: 12448
