@@ -5,16 +5,17 @@ A Python GUI for semi-quantitative EDS analysis in TEM. It manages batch process
 ## Features
 
 - **Cliff-Lorimer quantification** with user-defined K-factors
-- **Flexible Peak Integration:** Choose between `Default` (standard background), `Deconvolution` (for overlapping peaks), or `Custom Windows` (user-defined integration/background widths in FWHM).
-- **Iterative element refinement** with dual threshold (weight % and Signal-to-Noise Ratio)
-- **Parallel processing** for fast batch analysis (ThreadPoolExecutor)
-- **Interactive GUI** built with Tkinter (scrollable analysis tab & statistics)
-- **Automatic PDF report generation** with annotated X-ray peaks
-- **Live progress tracking** with real-time logging
-- **Configurable SNR filter** (1.0 – 10.0) for robust peak detection
-- **Support for wt.% and at.%** output units
-- **Robust Statistics Tab:** Scatter plots correctly aligned by spectrum, handling undetected elements gracefully.
-- **Batch processing** of `.spc` spectral files with optional `.xml` metadata
+- **Three integration strategies**:
+  - `default` – symmetric 2×FWHM windows (fast, for isolated peaks)
+  - `custom_windows` – asymmetric FWHM-parameterized windows with background subtraction
+  - `deconvolution` – model-based Gaussian fitting with iterative refinement
+- **Iterative element refinement** with dual threshold (weight % and SNR)
+- **Parallel processing** (ThreadPoolExecutor)
+- **Interactive Tkinter GUI** with scrollable analysis tab and statistics tab
+- **Automatic PDF report** per spectrum with annotated X-ray peaks
+- **Live progress tracking** with per-task log capture
+- **Robust statistics tab**: scatter plots correctly aligned by spectrum, handling undetected elements as 0
+- **Batch processing** of `.spc` files with optional `.xml` metadata
 
 ---
 
@@ -68,9 +69,9 @@ python EDS_TEM_GUI.py
 4- **Choose units** – `wt.%` or `at.%`.  
 5- **Set refinement threshold** – Minimum weight % to retain an element (default: 1.0%).  
 6- **Adjust SNR sensitivity** – SNR threshold (default: 3.0; higher = more stringent).  
-7- **Select Integration Method** – Choose default, deconvolution, or custom_windows. If using   
-custom windows, specify the Left/Right integration and Background widths (in FWHM).
-8- **Click "Analyze EDS"** – Processing begins in parallel.  
+7. **Select Integration Method** – Choose `default`, `custom_windows`, or `deconvolution`.
+   For `custom_windows`, specify *Window Left*, *Window Right* and *Background* (in multiples of FWHM).
+8. **Click "Analyze EDS"** – Processing begins in parallel.  
 
 ### Output Files  
 |File | Description|  
@@ -96,6 +97,7 @@ eds_analysis/
     ├── core/
     │   ├── quantification.py      # Quantification engine + SNR filter
     │   └── processing.py          # Spectrum processing pipeline
+    │   └── perform_deconvolution.py   # Model-based deconvolution module
     ├── gui/
     │   ├── main_window.py         # Main window
     │   ├── analysis_tab.py        # Analysis tab
